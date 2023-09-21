@@ -1,7 +1,7 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
-#define IMAGE_DIR "../images/"
+#define IMAGE_DIR "../../images/"
 
 #include <stdio.h>
 #include <stdlib.h>

@@ -14,10 +14,13 @@ Image *new_image(int m, int n, int q) {
 }
 
 Image *load_image(const char *fname) {
-    char fpath[64];
+    char fpath[64];    
+
     sprintf(fpath, "%s%s", IMAGE_DIR, fname);
+
     Image *img = (Image*) malloc(sizeof(Image));
     FILE *fp = fopen(fpath, "r");
+
     if (!fp) { 
         fprintf(stderr, "Error opening '%s'.\n", fname); 
         return NULL;
@@ -44,23 +47,20 @@ int load_header(FILE *fp, Image *img) {
 
     for (int i = 0; i < 4; i += 1) {
         fgets(rbuf, 64, fp);
-        printf("%s\n", rbuf);
-        if (rbuf[0] == "#") { header_lines = 4; break; }
+        if (rbuf[0] == '#') { header_lines = 4; break; }
     }
 
     fseek(fp, 0, SEEK_SET);
 
     fgets(rbuf, 64, fp);
-    if (strcmp(rbuf, "P5") != 0) {  // file mode
+    if (strcmp(rbuf, "P5\n") != 0) {  // file mode
         fprintf(stderr, "Error. File is not PGM.\n");
         return 1;
     }
 
     for (int i = 1; i < header_lines; i += 1) {
-        long int old_pos = ftell(fp);
         fgets(rbuf, 64, fp);
-        printf("rbuf: %s\n", rbuf);
-        if (rbuf[0] == "#") {    // comment line
+        if (rbuf[0] == '#') {    // comment line
             continue;
         } else {
             img->m = strtol(rbuf, &rhead, 10);
@@ -70,23 +70,9 @@ int load_header(FILE *fp, Image *img) {
 
             img->q = strtol(rbuf, &rhead, 10);
 
-            printf("%d %d %d\n", img->m, img->n, img->q);
-
             break;
         }
     }
-
-    // do {fscanf(fp, "%s\n", rbuf);} while (rbuf[0] == '#');
-
-
-    // img->m = strtol(rbuf, &rhead, 10);
-    // img->n = atoi(rhead);
-
-    // fgets(rbuf, 64, fp);
-
-    // img->q = strtol(rbuf, &rhead, 10);
-
-    // fscanf(fp, "%d %d\n%d", &img->m, &img->n, &img->q);
 
     img->size = img->m * img->n;
 
