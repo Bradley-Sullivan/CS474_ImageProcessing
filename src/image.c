@@ -13,6 +13,22 @@ Image *new_image(int m, int n, int q) {
     return ret;
 }
 
+int del_image(Image *img) {
+    if (!img) {
+        fprintf(stderr, "Cannot free NULL Image pointer.\n");
+        return 1;
+    } else if (!img->data) {
+        fprintf(stderr, "Cannot free NULL Image-data pointer.\n");
+        return 1;
+    }
+
+    free(img->data);
+
+    free(img);
+
+    return 0;
+}
+
 Image *load_image(const char *fname) {
     char fpath[64];    
 

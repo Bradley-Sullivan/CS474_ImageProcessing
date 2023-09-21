@@ -15,6 +15,7 @@ typedef struct Image {
 } Image;
 
 Image *new_image(int m, int n, int q);
+int del_image(Image *img);
 Image *load_image(const char *fname);
 int load_header(FILE *fp, Image *img);
 int load_data(FILE *fp, Image *img);
