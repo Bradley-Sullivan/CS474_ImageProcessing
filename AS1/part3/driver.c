@@ -5,32 +5,30 @@
 #include "image.h"
 #include "util.h"
 
+// #define ARGS
 #define NUM_ARGS 1
-#define min(a,b) ((a<b)?a:b)
 
  /*
     TODO:
         Write functions to compute and operate on image histograms [x]
         Write histogram equalization [x]
-        Write histogram specification (?)
+        Write histogram specification [x]
+        Write image subsampling [x]
+        Write image rescaling [x]
+        Write image re-quantization [ ]
+        Write windowed convolution [ ]
+        Write windowed correlation [ ]
         Write local versions of histogram equalizations and specifications
         Write local and global histogram statistics computations
  */
 
-typedef struct Option {
-    char short_opt;
-    const char *long_opt;
-    int num_args;
-    void (*handler)(const char *arg);
-} Option;
-
-// implement specific handlers (not essential)
-
 int main(int argc, char *argv[]) {
+#ifdef ARGS
     if (argc <= NUM_ARGS) {
         fprintf(stderr, "Error. Incorrect usage.\n  Correct usage: %s [image_filename]\n", argv[0]);
         return 1;
     }
+#endif
 
     // Image *in, *spec, *out;
 

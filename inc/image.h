@@ -1,10 +1,13 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#define IMAGE_DIR "../images/"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <inttypes.h>
 #include <ctype.h>
+#include <string.h>
 
 typedef struct Image {
     int m, n, q, size;
