@@ -171,6 +171,9 @@ int image_requantize(Image *img, int q) {
 
     img->q = q;
 
+    // memory cleanup
+    free(hist); free(indices);
+
     return 0;
 }
 
