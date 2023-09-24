@@ -145,26 +145,28 @@ int image_subsample(Image *img, Image *dst, int factor) {
 int image_requantize(Image *img, int q) {
     uint16_t *hist = NULL;
 
+    // compute pixel value frequencies
     compute_hist(img, &hist);
 
+    // deduplicate set of pixel frequencies
     int hsize = make_set(hist, img->q);
 
-    printf("hsize: %d\n", hsize);
-
+    // create array to store indices into histogram
     uint16_t *indices = (uint16_t*) malloc(sizeof(uint16_t) * hsize);
     for (int i = 0; i < hsize; i += 1) indices[i] = i;
 
+    // sort index array on frequency values (preserves pixel->freq. mapping)
     msb_radixsort_index(hist, indices, 0, hsize - 1, 1 << 15);
 
-    for (int i = 0; i < img->size; i += 1) {
-        // int midx = 0, mdiff = img->q;
-        // for (int k = fmin(q,hsize) - 1; k >= 0; k -= 1) {
-        //     if (abs(img->data[i] - indices[k]) < mdiff) {
-        //         mdiff = abs(img->data[i] - indices[k]);
-        //         midx = k;
-        //     }
-        // }
-        // img->data[i] = midx;
+    for (int i = 0; i < img->size; i += 1) {    // loop image pixels
+        int midx = 0, mdiff = img->q;
+        for (int k = fmin(q,hsize) - 1; k >= 0; k -= 1) {   // loop q most frequent pixel values
+            if (abs(img->data[i] - indices[k]) < mdiff) {   // compute distance between image pixel v. quantized pixel values
+                mdiff = abs(img->data[i] - indices[k]);     // updates new minimum diff
+                midx = k;                                   // keeps track of idx of min diff
+            }
+        }
+        img->data[i] = midx;                                // updates image pixel with quantized value of least distance
     }
 
     img->q = q;
@@ -191,14 +193,14 @@ void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint
 
     mask >>= 1;
 
-    msb_radixsort_index(data, idx, zbin, oh, mask);
-    msb_radixsort_index(data, idx, zh, obin, mask);
+    msb_radixsort_index(data, idx, zbin, oh, mask);     // recursively sorts zero bin
+    msb_radixsort_index(data, idx, zh, obin, mask);     // recursively sorts one bin
 }
 
 void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask) {
     static uint16_t sw = 0;
 
-    if (mask == 0) return;
+    if (mask == 0 || zbin >= obin) return;
 
     uint8_t zh = zbin, oh = obin;
 
@@ -213,23 +215,23 @@ void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask) {
 
     mask >>= 1;
 
-    msb_radixsort(data, zbin, oh, mask);
-    msb_radixsort(data, zh, obin, mask);
+    msb_radixsort(data, zbin, oh, mask);    // recursively sorts zero bin
+    msb_radixsort(data, zh, obin, mask);    // recursively sorts one bin
 }
 
 int make_set(uint16_t *data, int n) {
-    // NOTE: this takes the first value encountered to be the representative of all duplicate values
-    // could change to take median value, swapping/removing others
+    // NOTE: this takes the first value encountered to be the representative of all duplicate values (frequencies)
+    // could change to take median value (median pixel value of duplicate frequencies), swapping/removing others
     int border = n - 1;
-    for (int i = 0; i <= border; i += 1) {
+    for (int i = 0; i < n; i += 1) {
         for (int k = i; k <= border; k += 1) {
             if (data[i] == data[k]) {
-                while (data[k] == data[border]) border -= 1;
+                while (data[k] == data[border]) border -= 1;    // avoids swapping equal values
                 int sw = data[k]; data[k] = data[border]; data[border] = sw;
                 border -= 1;
             }
         }
     }
 
-    return border;
+    return border;      // return deduplicated partition index
 }
