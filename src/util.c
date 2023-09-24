@@ -1,7 +1,7 @@
 #include "util.h"
 
-int compute_hist(Image *img, int **dest_hist) {
-    (*dest_hist) = (int*) calloc(img->q, sizeof(int));
+int compute_hist(Image *img, uint16_t **dest_hist) {
+    (*dest_hist) = (uint16_t*) calloc(img->q, sizeof(uint16_t));
     if (!(*dest_hist)) {
         fprintf(stderr, "Failed to allocate memory for histogram.\n");
         return 1;
@@ -12,7 +12,7 @@ int compute_hist(Image *img, int **dest_hist) {
     return 0;
 }
 
-int compute_pix_prob(int img_size, int q, int *hist, float **prob) {
+int compute_pix_prob(uint16_t img_size, uint16_t q, uint16_t *hist, float **prob) {
     (*prob) = (float*) malloc(sizeof(float) * q);
     if (!(*prob)) {
         fprintf(stderr, "Error allocating memory for pixel probabilities.\n");
@@ -27,7 +27,7 @@ int compute_pix_prob(int img_size, int q, int *hist, float **prob) {
 }
 
 int compute_hist_specification(Image *input, Image *spec, Image *out) {
-    int *in_hist = NULL, *spec_hist = NULL;
+    uint16_t *in_hist = NULL, *spec_hist = NULL;
     float *in_prob = NULL, *spec_prob = NULL;
 
     // compute input and specified histograms
@@ -67,7 +67,7 @@ int compute_hist_specification(Image *input, Image *spec, Image *out) {
     return 0;
 }
 
-int equalize_hist(int q, int *hist, float *prob) {
+int equalize_hist(int q, uint16_t *hist, float *prob) {
     float psum = 0;
     for (int i = q; i >= 0; i -= 1) {
         psum = 0;
@@ -80,7 +80,7 @@ int equalize_hist(int q, int *hist, float *prob) {
 }
 
 int equalize_contrast(Image *img) {
-    int *hist = NULL;
+    uint16_t *hist = NULL;
     float *prob = NULL;
 
     compute_hist(img, &hist);
@@ -140,4 +140,96 @@ int image_subsample(Image *img, Image *dst, int factor) {
     }    
 
     return 0;
+}
+
+int image_requantize(Image *img, int q) {
+    uint16_t *hist = NULL;
+
+    compute_hist(img, &hist);
+
+    int hsize = make_set(hist, img->q);
+
+    printf("hsize: %d\n", hsize);
+
+    uint16_t *indices = (uint16_t*) malloc(sizeof(uint16_t) * hsize);
+    for (int i = 0; i < hsize; i += 1) indices[i] = i;
+
+    msb_radixsort_index(hist, indices, 0, hsize - 1, 1 << 15);
+
+    for (int i = 0; i < img->size; i += 1) {
+        // int midx = 0, mdiff = img->q;
+        // for (int k = fmin(q,hsize) - 1; k >= 0; k -= 1) {
+        //     if (abs(img->data[i] - indices[k]) < mdiff) {
+        //         mdiff = abs(img->data[i] - indices[k]);
+        //         midx = k;
+        //     }
+        // }
+        // img->data[i] = midx;
+    }
+
+    img->q = q;
+
+    return 0;
+}
+
+void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask) {
+    static uint16_t sw = 0;
+
+    if (mask == 0 || zbin >= obin) return;
+
+    uint16_t zh = zbin, oh = obin;
+
+    while (zh <= oh) {
+        if (data[idx[zh]] & mask) {
+            // sw = data[zh]; data[zh] = data[oh]; data[oh] = sw;
+            sw = idx[zh]; idx[zh] = idx[oh]; idx[oh] = sw;
+            oh -= 1;
+        } else {
+            zh += 1;
+        }
+    }
+
+    mask >>= 1;
+
+    msb_radixsort_index(data, idx, zbin, oh, mask);
+    msb_radixsort_index(data, idx, zh, obin, mask);
+}
+
+void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask) {
+    static uint16_t sw = 0;
+
+    if (mask == 0) return;
+
+    uint8_t zh = zbin, oh = obin;
+
+    while (zh <= oh) {
+        if (data[zh] & mask) {
+            sw = data[zh]; data[zh] = data[oh]; data[oh] = sw;
+            oh -= 1;
+        } else {
+            zh += 1;
+        }
+    }
+
+    mask >>= 1;
+
+    msb_radixsort(data, zbin, oh, mask);
+    msb_radixsort(data, zh, obin, mask);
+}
+
+int make_set(uint16_t *data, int n) {
+    // NOTE: this takes the first value encountered to be the representative of all duplicate values
+    // could change to take median value, swapping/removing others
+    int border = n - 1;
+    for (int i = 0; i <= border; i += 1) {
+        for (int k = i; k <= border; k += 1) {
+            if (data[i] == data[k]) {
+                while (data[k] == data[border]) border -= 1;
+                int sw = data[k]; data[k] = data[border]; data[border] = sw;
+                border -= 1;
+            }
+        }
+    }
+
+    return border;
 }
