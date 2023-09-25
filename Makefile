@@ -9,7 +9,7 @@ INCLUDE_DIR = inc
 PART_DIR = AS1
 
 # List of all parts
-PARTS = part1 part2 part3 part4
+PARTS = part1 part2 part3 part4 test
 
 # Common source files
 COMMON_SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
