@@ -13,6 +13,17 @@ Image *new_image(int m, int n, int q) {
     return ret;
 }
 
+Image *copy_image(Image* img) {
+    Image *ret = new_image(img->m, img->n, img->q);
+
+    if (!memcpy(ret->data, img->data, img->size)) {
+        fprintf(stderr, "Error. Failed to copy input data array.\n");
+        return NULL;
+    }
+
+    return ret;
+}
+
 int del_image(Image *img) {
     if (!img) {
         fprintf(stderr, "Cannot free NULL Image pointer.\n");
@@ -42,12 +53,29 @@ Image *load_image(const char *fname) {
         return NULL;
     }
 
-    if (load_header(fp, img)) {
+    // gets file size
+    fseek(fp, 0, SEEK_END);
+    size_t fsize = ftell(fp);
+    fseek(fp, 0, SEEK_SET);
+
+    uint8_t *fbuf = (uint8_t*) malloc(sizeof(uint8_t) * fsize);
+
+    // loads entire file into memory
+    if (!fread(fbuf, sizeof(uint8_t), fsize, fp)) {
+        fprintf(stderr, "Error loading file into buffer.\n");
+        return NULL;
+    }
+
+    // opens filestream on file buffer
+    FILE *fbuf_stream = fmemopen(fbuf, fsize, "r");
+
+    // extracts header information from file buffer
+    if (load_header(fbuf_stream, img)) {
         fprintf(stderr, "Error loading file header.\n");
         return NULL;
     }
 
-    if (load_data(fp, img)) {
+    if (load_data(fbuf_stream, img)) {
         fprintf(stderr, "Error loading file data.\n");
         return NULL;
     }
@@ -58,37 +86,20 @@ Image *load_image(const char *fname) {
 }
 
 int load_header(FILE *fp, Image *img) {
-    char rbuf[64], *rhead;
-    int header_lines = 3;
-
-    for (int i = 0; i < 4; i += 1) {
-        fgets(rbuf, 64, fp);
-        if (rbuf[0] == '#') { header_lines = 4; break; }
-    }
-
-    fseek(fp, 0, SEEK_SET);
+    char *rbuf = (char*) malloc(sizeof(char) * 64);
 
     fgets(rbuf, 64, fp);
-    if (strcmp(rbuf, "P5\n") != 0) {  // file mode
-        fprintf(stderr, "Error. File is not PGM.\n");
+
+    if (strcmp(rbuf, "P5\n")) {
+        fprintf(stderr, "Error. File is not in PGM format.\n");
         return 1;
     }
 
-    for (int i = 1; i < header_lines; i += 1) {
-        fgets(rbuf, 64, fp);
-        if (rbuf[0] == '#') {    // comment line
-            continue;
-        } else {
-            img->m = strtol(rbuf, &rhead, 10);
-            img->n = atoi(rhead);
+    do { fgets(rbuf, 64, fp); } while (rbuf[0] == '#');
 
-            fgets(rbuf, 64, fp);
+    sscanf(rbuf, "%hu %hu\n", &img->m, &img->n);
 
-            img->q = strtol(rbuf, &rhead, 10);
-
-            break;
-        }
-    }
+    fscanf(fp, "%hu\n", &img->q);
 
     img->size = img->m * img->n;
 
@@ -98,7 +109,7 @@ int load_header(FILE *fp, Image *img) {
 int load_data(FILE *fp, Image *img) {
     uint8_t *img_data = (uint8_t*) malloc(sizeof(uint8_t) * img->size);
 
-    if (!fread(img_data, img->size, 1, fp)) {
+    if (!fread(img_data, sizeof(uint8_t), img->size, fp)) {
         fprintf(stderr, "Error. Image is not %d by %d.\n", img->m, img->n);
         return 1;
     }
@@ -116,7 +127,7 @@ int write_image(const char *fname, Image *img) {
     fprintf(fp, "P5\n%d %d\n%d\n", img->m, img->n, img->q);
 
     // writes data
-    if (!fwrite(img->data, img->size, 1, fp)) {
+    if (!fwrite(img->data, sizeof(uint8_t), img->size, fp)) {
         fprintf(stderr, "Error writing image data to file.\n");
         return 1;
     }

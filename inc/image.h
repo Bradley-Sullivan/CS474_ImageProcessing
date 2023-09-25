@@ -10,11 +10,13 @@
 #include <string.h>
 
 typedef struct Image {
-    int m, n, q, size;
+    uint16_t m, n, q;
+    size_t size;
     uint8_t *data;
 } Image;
 
 Image *new_image(int m, int n, int q);
+Image *copy_image(Image* img);
 int del_image(Image *img);
 Image *load_image(const char *fname);
 int load_header(FILE *fp, Image *img);

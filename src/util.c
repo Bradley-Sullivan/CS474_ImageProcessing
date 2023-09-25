@@ -1,5 +1,6 @@
 #include "util.h"
 
+// could modify to return pointer to created histogram instead of modifying provided arguments
 int compute_hist(Image *img, uint16_t **dest_hist) {
     (*dest_hist) = (uint16_t*) calloc(img->q, sizeof(uint16_t));
     if (!(*dest_hist)) {
@@ -7,12 +8,13 @@ int compute_hist(Image *img, uint16_t **dest_hist) {
         return 1;
     }
 
-    for (int i = 0; i < img->m * img->n; i += 1) (*dest_hist)[img->data[i]] += 1;
+    for (int i = 0; i < img->size; i += 1) (*dest_hist)[img->data[i]] += 1;
 
     return 0;
 }
 
-int compute_pix_prob(uint16_t img_size, uint16_t q, uint16_t *hist, float **prob) {
+// could return pointer to pixel probability map
+int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob) {
     (*prob) = (float*) malloc(sizeof(float) * q);
     if (!(*prob)) {
         fprintf(stderr, "Error allocating memory for pixel probabilities.\n");
@@ -20,13 +22,14 @@ int compute_pix_prob(uint16_t img_size, uint16_t q, uint16_t *hist, float **prob
     }
 
     for (int i = 0; i < q; i += 1) {
-        (*prob)[i] = ((float)hist[i]) / img_size;
+        (*prob)[i] = (float)hist[i] / img_size;
     }
 
     return 0;
 }
 
-int compute_hist_specification(Image *input, Image *spec, Image *out) {
+Image *image_specify_hist(Image *input, Image *spec) {
+    Image *out = new_image(input->m, input->n, input->q);
     uint16_t *in_hist = NULL, *spec_hist = NULL;
     float *in_prob = NULL, *spec_prob = NULL;
 
@@ -64,27 +67,30 @@ int compute_hist_specification(Image *input, Image *spec, Image *out) {
     free(in_hist); free(in_prob);
     free(spec_hist); free(spec_prob);
 
-    return 0;
+    return out;
 }
 
 int equalize_hist(int q, uint16_t *hist, float *prob) {
     float psum = 0;
+    
     for (int i = q; i >= 0; i -= 1) {
         psum = 0;
         for (int k = i; k >= 0; k -= 1) psum += prob[k];
         psum *= q;
-        hist[i] = (int) psum;
+        hist[i] = (uint16_t) psum;
     }
 
     return 0;
 }
 
-int equalize_contrast(Image *img) {
+Image *image_contrast_eq(Image *input) {
+    Image *img = copy_image(input);
+
     uint16_t *hist = NULL;
     float *prob = NULL;
 
     compute_hist(img, &hist);
-    
+
     compute_pix_prob(img->size, img->q, hist, &prob);
 
     // compute contrast equalization transform
@@ -96,10 +102,11 @@ int equalize_contrast(Image *img) {
     // memory cleanup
     free(hist); free(prob);
 
-    return 0;
+    return img;
 }
 
-int image_rescale(Image *img, int factor) {
+Image *image_rescale(Image *input, int factor) {
+    Image *img = copy_image(input);
     int newr = img->m * factor, newc = img->n * factor;
     int newsize = newr * newc;
 
@@ -118,31 +125,31 @@ int image_rescale(Image *img, int factor) {
     
     img->data = new_data;
 
-    return 0;
+    return img;
 }
 
-int image_subsample(Image *img, Image *dst, int factor) {
+Image *image_subsample(Image *input, Image *dst, int factor) {
     if (factor <= 0) {
         fprintf(stderr, "Cannot subsample by nonpositive factor.\n");
-        return 1;
+        return NULL;
     }
 
-    dst->q = img->q;
-    dst->m = img->m / factor; dst->n = img->n / factor;
-    dst->size = dst->m * dst->n;
+    Image *img = new_image(input->m / factor, input->n / factor, input->q);
+    if (!img) return NULL;
 
     int idx = 0;
-    dst->data = (uint8_t*) realloc(dst->data, sizeof(uint8_t) * dst->size);
+
     for (int i = 0; i < img->m; i += factor) {
         for (int k = 0; k < img->n; k += factor) {
-            dst->data[idx++] = img->data[i * img->n + k];
+            img->data[idx++] = img->data[i * img->n + k];
         }
     }    
 
-    return 0;
+    return img;
 }
 
-int image_requantize(Image *img, int q) {
+Image *image_requantize(Image *input, int q, int inv) {
+    Image *img = copy_image(input);
     uint16_t *hist = NULL;
 
     // compute pixel value frequencies
@@ -159,14 +166,14 @@ int image_requantize(Image *img, int q) {
     msb_radixsort_index(hist, indices, 0, hsize - 1, 1 << 15);
 
     for (int i = 0; i < img->size; i += 1) {    // loop image pixels
-        int midx = 0, mdiff = img->q;
+        uint32_t midx = 0, mdiff = img->q;
         for (int k = fmin(q,hsize) - 1; k >= 0; k -= 1) {   // loop q most frequent pixel values
             if (abs(img->data[i] - indices[k]) < mdiff) {   // compute distance between image pixel v. quantized pixel values
                 mdiff = abs(img->data[i] - indices[k]);     // updates new minimum diff
                 midx = k;                                   // keeps track of idx of min diff
             }
         }
-        img->data[i] = midx;                                // updates image pixel with quantized value of least distance
+        img->data[i] = (inv) ? ~midx : midx;                                // updates image pixel with quantized value of least distance
     }
 
     img->q = q;
@@ -174,7 +181,7 @@ int image_requantize(Image *img, int q) {
     // memory cleanup
     free(hist); free(indices);
 
-    return 0;
+    return img;
 }
 
 void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask) {
@@ -237,4 +244,78 @@ int make_set(uint16_t *data, int n) {
     }
 
     return border;      // return deduplicated partition index
+}
+
+Window *new_window(int width, int pos, int b) {
+    Window *ret = (Window*) malloc(sizeof(Window));
+
+    ret->w = width;
+    ret->pos = pos;
+    ret->b = b;
+
+    return ret;
+}
+
+// NOTE: wpos specifies index of top-left corner of window in data array
+uint16_t *read_window(uint16_t *data, int n, int nwidth, Window *win) {
+    uint16_t *wdata = (uint16_t*) malloc(sizeof(uint16_t) * win->len);
+
+    // bounds check wpos
+    // clip window size
+    // init out of bounds values w/ 0
+
+    // data bounds -> n/nwidth rows, nwidth columns
+    // window bounds -> w rows, w columns
+    // maximized clipped-window
+        // tlr -> wpos / nwidth
+        // brr -> fmin(tlr + w, drows)
+        // tlc -> wpos % nwidth
+        // brc -> fmin(tlc + w, dcols)
+
+    // compute data bounds
+    int drows = n / nwidth;
+    int dcols = nwidth;
+
+    // compute window clipping params
+    int tlr = win->pos / nwidth;
+    int brr = fmin(tlr + win->w, drows);
+    int tlc = win->pos % nwidth;
+    int brc = fmin(tlc + win->w, dcols);
+
+    // clip window bounds
+    int wrows = brr - tlr;
+    int wcols = brc - tlc;
+
+    for (int i = 0; i < win->len; i += 1) {
+        // compute window-coords
+        int r = i / win->w, c = i % win->w;
+        int widx = (r * win->w) + c;
+        // bounds check with clipped window bounds
+        int in_bounds = (r < wrows) ? ((c < wcols) ? 1 : 0) : 0;
+        if (in_bounds) {
+            // compute window position in data-coords
+            int didx = ((win->pos / nwidth) + r) * nwidth + ((win->pos % nwidth) + c);
+            wdata[widx] = data[didx];
+            // need collision check against previously stored data
+                // i.e. since widx is in-bounds of clipped window
+                // -> need to ensure current win->b doesn't see this element as oob (data[didx] + wdata[(widx + win->b) % win->len] != 0)
+                // if using win->b classifies data[didx] as oob -> set collision flag and mark idx
+            // # of collsions are bounded from 0 -> win->len - 1 (size of collision idx array)
+        } else {
+            // designating out of bounds pixels is ambiguous with unsigned data!
+            // could assert windows store data in signed integer format
+            // allows -1 to unambiguously describe out of bounds elements for images using unsigned data
+
+            // otherwise, this allows us to compare each element to the previous element modulo wsize
+            // if w[i] + w[(i + wsize) % wsize] == 0 -> out of bounds
+            // it is not impossible to have natural collisions within pixel data that is in bounds
+            // i.e. pixels in-bounds can satisfy this condition, incorrectly labeling them as out of bounds
+            wdata[widx] = ~wdata[(widx + win->b) % win->len] + 1;
+        }
+    }
+
+    // if collision flag -> set
+        // need to pick new b
+
+    return wdata;    
 }
