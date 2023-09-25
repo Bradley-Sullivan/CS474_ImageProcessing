@@ -10,9 +10,10 @@
 
 typedef struct Window {
     int w;
+    int a;
+    int b;
     int len;
     int pos;
-    int b;
 } Window;
 
 int compute_hist(Image *img, uint16_t **dest_hist);
@@ -29,7 +30,8 @@ void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask);
 void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask);
 int make_set(uint16_t *data, int n);
 
-Window *new_window(int width, int pos, int b);
+Window *new_window(int a, int b, int pos);
+Window *new_window_sq(int width, int pos);
 uint16_t *read_window(uint16_t *data, int n, int nwidth, Window *w);
 int write_window(uint16_t *data, int n, uint16_t *wdata, Window *w);
 

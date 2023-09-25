@@ -246,76 +246,63 @@ int make_set(uint16_t *data, int n) {
     return border;      // return deduplicated partition index
 }
 
-Window *new_window(int width, int pos, int b) {
+Window *new_window(int a, int b, int pos) {
+    Window *ret = (Window*) malloc(sizeof(Window));
+
+    ret->w = a;
+    ret->a = a; ret->b = b;
+    ret->len = a * b;
+    ret->pos = pos;
+
+    return ret;
+}
+
+Window *new_window_sq(int width, int pos) {
     Window *ret = (Window*) malloc(sizeof(Window));
 
     ret->w = width;
+    ret->a = width; ret->b = width;
+    ret->len = width * width;
     ret->pos = pos;
-    ret->b = b;
 
     return ret;
 }
 
 // NOTE: wpos specifies index of top-left corner of window in data array
 uint16_t *read_window(uint16_t *data, int n, int nwidth, Window *win) {
-    uint16_t *wdata = (uint16_t*) malloc(sizeof(uint16_t) * win->len);
 
-    // bounds check wpos
-    // clip window size
-    // init out of bounds values w/ 0
-
-    // data bounds -> n/nwidth rows, nwidth columns
-    // window bounds -> w rows, w columns
-    // maximized clipped-window
-        // tlr -> wpos / nwidth
-        // brr -> fmin(tlr + w, drows)
-        // tlc -> wpos % nwidth
-        // brc -> fmin(tlc + w, dcols)
+    // need to take window pos from center coords to top left coords
 
     // compute data bounds
     int drows = n / nwidth;
     int dcols = nwidth;
 
     // compute window clipping params
-    int tlr = win->pos / nwidth;
+    int tlr = fmax(win->pos / nwidth, 0);
     int brr = fmin(tlr + win->w, drows);
-    int tlc = win->pos % nwidth;
+    int tlc = fmax(win->pos % nwidth, 0);
     int brc = fmin(tlc + win->w, dcols);
 
-    // clip window bounds
+    // clip window size
     int wrows = brr - tlr;
     int wcols = brc - tlc;
 
+    win->a = wrows;
+    win->b = wcols;
+    win->len = wrows * wcols;
+
+    uint16_t *wdata = (uint16_t*) malloc(sizeof(uint16_t) * win->len);
     for (int i = 0; i < win->len; i += 1) {
         // compute window-coords
-        int r = i / win->w, c = i % win->w;
-        int widx = (r * win->w) + c;
-        // bounds check with clipped window bounds
-        int in_bounds = (r < wrows) ? ((c < wcols) ? 1 : 0) : 0;
-        if (in_bounds) {
-            // compute window position in data-coords
-            int didx = ((win->pos / nwidth) + r) * nwidth + ((win->pos % nwidth) + c);
-            wdata[widx] = data[didx];
-            // need collision check against previously stored data
-                // i.e. since widx is in-bounds of clipped window
-                // -> need to ensure current win->b doesn't see this element as oob (data[didx] + wdata[(widx + win->b) % win->len] != 0)
-                // if using win->b classifies data[didx] as oob -> set collision flag and mark idx
-            // # of collsions are bounded from 0 -> win->len - 1 (size of collision idx array)
-        } else {
-            // designating out of bounds pixels is ambiguous with unsigned data!
-            // could assert windows store data in signed integer format
-            // allows -1 to unambiguously describe out of bounds elements for images using unsigned data
-
-            // otherwise, this allows us to compare each element to the previous element modulo wsize
-            // if w[i] + w[(i + wsize) % wsize] == 0 -> out of bounds
-            // it is not impossible to have natural collisions within pixel data that is in bounds
-            // i.e. pixels in-bounds can satisfy this condition, incorrectly labeling them as out of bounds
-            wdata[widx] = ~wdata[(widx + win->b) % win->len] + 1;
-        }
+        int r = i / win->b, c = i % win->b;
+        // compute window position in data-coords
+        int didx = (r + tlr) * nwidth + (tlc + c);
+        wdata[i] = data[didx];
     }
 
-    // if collision flag -> set
-        // need to pick new b
-
-    return wdata;    
+    return wdata; 
 }
+
+
+
+
