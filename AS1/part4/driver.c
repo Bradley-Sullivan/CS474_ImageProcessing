@@ -8,16 +8,16 @@
 int main(void) {
     Image *boat = load_image("boat.pgm");
     Image *f16 = load_image("f_16.pgm");
-    Image *boat_spec = load_image("sf.pgm");
-    Image *f16_spec = load_image("peppers.pgm");
-    Image *out = new_image(boat->m, boat->n, boat->q);
+    Image *sf = load_image("sf.pgm");
+    Image *peppers = load_image("peppers.pgm");
 
-    compute_hist_specification(boat, boat_spec, out);
-    write_image("boat_spec.pgm", out);
-    del_image(out); out = new_image(f16->m, f16->n, f16->q);
-    compute_hist_specification(f16, f16_spec, out);
-    write_image("f16_spec.pgm", out);
-    del_image(out);    
+    Image *sf_on_boat = image_specify_hist(boat, sf);
+
+    write_image("sf_on_boat.pgm", sf_on_boat);
+
+    Image *peppers_on_f16 = image_specify_hist(f16, peppers);
+
+    write_image("peppers_on_f16.pgm", peppers_on_f16);
     
     return 0;
 }
