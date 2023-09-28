@@ -60,7 +60,7 @@ Specific assignments will follow the form `AS[1:n]` (i.e. `AS1`, `AS2`, etc.).
 
 Different parts will follow the form `part[1:n]` (i.e. `part1`, `part2`, etc.).
 
-To execute the compiled program, navigate through the heirarchy depicted above to the desired part's folder. Inside the specific part's folder will contain the driver program (typically a `driver.c` file) and its associated executable (typically named `pgm`).
+To execute the compiled program, navigate through the heirarchy depicted above to the desired part's folder. Inside the specific part's folder will contain the program driver (typically a `driver.c` file) and its associated executable (typically named `pgm`).
 
 In order to run `pgm`, enter this command into your terminal from the specific part folder
 
