@@ -14,7 +14,7 @@ int main(void) {
     int wsize = wwidth * wwidth;
 
     uint16_t data[dsize];
-    uint16_t *window = NULL;
+    uint16_t *window = (uint16_t*) malloc(sizeof(uint16_t) * wsize);
 
     srand(time(NULL));
     for (int i = 0; i < dsize; i += 1) {
@@ -25,8 +25,8 @@ int main(void) {
     printf("\n\n");
 
 
-    Window *w = new_window_sq(wwidth, 8);
-    window = read_window(data, dsize, dwidth, w);
+    Window *w = new_window_sq(wwidth, 0);
+    read_window(data, dsize, dwidth, window, w);
 
     for (int i = 0; i < w->len; i += 1) {
         printf(" %d", window[i]);
