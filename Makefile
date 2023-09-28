@@ -35,7 +35,6 @@ $(AS_DIR)/%/$(EXENAME): $(AS_DIR)/%/driver.c $(COMMON_OBJ_FILES) $(COMMON_HEADER
 # Clean rule
 clean:
 	rm -f $(SRC_DIR)/*.o $(AS_DIR)/*/$(EXENAME)
-	rm -f $(foreach part,$(PARTS),$(PART_DIR)/$(part)/$(EXENAME))
 
 .PHONY: all clean
 
