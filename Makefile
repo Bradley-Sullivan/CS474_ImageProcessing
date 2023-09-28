@@ -1,6 +1,6 @@
 # Compiler and compiler flags
 CC = gcc
-CFLAGS = -g -O2 -Wall -I./inc
+CFLAGS = -g -O2 -Wall -I./inc -lm
 EXENAME = pgm
 
 # Directories
