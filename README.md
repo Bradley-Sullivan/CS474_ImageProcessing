@@ -52,13 +52,20 @@ The parts of assignments programmed in C will need to be compiled from source be
 
 To compile a specific part with a C-implementation, execute the following command from the root of the cloned or downloaded repository:
 
-    make [assignment] [part]
+    make [AS_DIR] [part]
 
-Compiling a specific part as such, the compiled executable will be placed next to the driver program for that part. 
+        [AS_DIR]    -> assignment directory to match (default=AS1)
+        [part]      -> specific part directory to match (default=ALL)
+
+NOTE: **The default assignment directory is the AS1 directory. If left unspecified, AS1 is the default directory make will search for parts in.**
+
+Leaving the part directory unspecified will compile all parts within the desired assignment directory.
 
 Specific assignments will follow the form `AS[1:n]` (i.e. `AS1`, `AS2`, etc.). 
 
 Different parts will follow the form `part[1:n]` (i.e. `part1`, `part2`, etc.).
+
+Once compiled, the executable will be placed next to the program driver for that part. 
 
 To execute the compiled program, navigate through the heirarchy depicted above to the desired part's folder. Inside the specific part's folder will contain the program driver (typically a `driver.c` file) and its associated executable (typically named `pgm`).
 
@@ -66,7 +73,7 @@ In order to run `pgm`, enter this command into your terminal from the specific p
 
     ./pgm <args>
 
-NOTE: **Different programs for different assignments/parts may require user-supplied command-line arguments. First try executing without any arguments, if arguments are required a print statement will detail the correct program usage.**
+NOTE: **Different programs for different assignments/parts may require user-supplied command-line arguments. First try executing without any arguments, if arguments are required a print statement will detail the correct program usage. Otherwise the program will have run as intended.**
 
 This will run the compiled program. Any program output will be placed beside this executable. This includes any output images.
 
