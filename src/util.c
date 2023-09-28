@@ -1,6 +1,5 @@
 #include "util.h"
 
-// could modify to return pointer to created histogram instead of modifying provided arguments
 int compute_hist(Image *img, uint16_t **dest_hist) {
     (*dest_hist) = (uint16_t*) calloc(img->q, sizeof(uint16_t));
     if (!(*dest_hist)) {
@@ -13,7 +12,6 @@ int compute_hist(Image *img, uint16_t **dest_hist) {
     return 0;
 }
 
-// could return pointer to pixel probability map
 int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob) {
     (*prob) = (float*) malloc(sizeof(float) * q);
     if (!(*prob)) {
@@ -21,9 +19,7 @@ int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob) 
         return 1;
     }
 
-    for (int i = 0; i < q; i += 1) {
-        (*prob)[i] = (float)hist[i] / img_size;
-    }
+    for (int i = 0; i < q; i += 1) (*prob)[i] = (float)hist[i] / img_size;
 
     return 0;
 }
@@ -83,7 +79,7 @@ int equalize_hist(int q, uint16_t *hist, float *prob) {
     return 0;
 }
 
-Image *image_contrast_eq(Image *input) {
+Image *image_hist_eq(Image *input) {
     Image *img = copy_image(input);
 
     uint16_t *hist = NULL;
@@ -106,84 +102,57 @@ Image *image_contrast_eq(Image *input) {
 }
 
 Image *image_rescale(Image *input, int factor) {
-    Image *img = copy_image(input);
-    int newr = img->m * factor, newc = img->n * factor;
+    int newr = input->m * factor, newc = input->n * factor;
     int newsize = newr * newc;
+    Image *img = new_image(newr, newc, input->q);
 
     uint8_t *new_data = (uint8_t*) malloc(sizeof(uint8_t) * newsize);
     for (int i = 0; i < newr; i += 1) {
         for (int k = 0; k < newc; k += 1) {
-            int img_idx = (i / factor) * img->n + (k / factor);
-            new_data[i * newc + k] = img->data[img_idx];
+            int input_idx = (i / factor) * input->n + (k / factor);
+            new_data[i * newc + k] = input->data[input_idx];
         }
     }
-
+    
     free(img->data);
 
-    img->m = newr; img->n = newc;
-    img->size = newsize;
-    
     img->data = new_data;
 
     return img;
 }
 
-Image *image_subsample(Image *input, Image *dst, int factor) {
+Image *image_subsample(Image *input, int factor) {
     if (factor <= 0) {
         fprintf(stderr, "Cannot subsample by nonpositive factor.\n");
         return NULL;
     }
 
-    Image *img = new_image(input->m / factor, input->n / factor, input->q);
+    uint16_t m = input->m / factor, n = input->n / factor;
+    Image *img = new_image(m, n, input->q);
     if (!img) return NULL;
 
     int idx = 0;
 
-    for (int i = 0; i < img->m; i += factor) {
-        for (int k = 0; k < img->n; k += factor) {
-            img->data[idx++] = img->data[i * img->n + k];
+    for (int i = 0; i < input->m; i += factor) {
+        for (int k = 0; k < input->n; k += factor) {
+            img->data[idx++] = input->data[i * input->n + k];
         }
-    }    
-
-    return img;
-}
-
-Image *image_requantize(Image *input, int q, int inv) {
-    Image *img = copy_image(input);
-    uint16_t *hist = NULL;
-
-    // compute pixel value frequencies
-    compute_hist(img, &hist);
-
-    // deduplicate set of pixel frequencies
-    int hsize = make_set(hist, img->q);
-
-    // create array to store indices into histogram
-    uint16_t *indices = (uint16_t*) malloc(sizeof(uint16_t) * hsize);
-    for (int i = 0; i < hsize; i += 1) indices[i] = i;
-
-    // sort index array on frequency values (preserves pixel->freq. mapping)
-    msb_radixsort_index(hist, indices, 0, hsize - 1, 1 << 15);
-
-    for (int i = 0; i < img->size; i += 1) {    // loop image pixels
-        uint32_t midx = 0, mdiff = img->q;
-        for (int k = fmin(q,hsize) - 1; k >= 0; k -= 1) {   // loop q most frequent pixel values
-            if (abs(img->data[i] - indices[k]) < mdiff) {   // compute distance between image pixel v. quantized pixel values
-                mdiff = abs(img->data[i] - indices[k]);     // updates new minimum diff
-                midx = k;                                   // keeps track of idx of min diff
-            }
-        }
-        img->data[i] = (inv) ? ~midx : midx;                                // updates image pixel with quantized value of least distance
     }
 
-    img->q = q;
+    return img;
+}
 
-    // memory cleanup
-    free(hist); free(indices);
+Image *image_requantize(Image *input, int bits, int inv) {
+    Image *img = copy_image(input);
+    
+    uint8_t c = img->q >> (1 << (bits - 1));
+
+    for (int i = 0; i < img->size; i += 1) img->data[i] = (uint8_t)(((float)img->data[i] / img->q) * (1 << bits)) * c;
 
     return img;
 }
 
+// sorts on array indices in-place. preserves index -> value mappings if required
 void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask) {
     static uint16_t sw = 0;
 
@@ -207,6 +176,7 @@ void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint
     msb_radixsort_index(data, idx, zh, obin, mask);     // recursively sorts one bin
 }
 
+// sorts data array in-place
 void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask) {
     static uint16_t sw = 0;
 
@@ -230,8 +200,6 @@ void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask) {
 }
 
 int make_set(uint16_t *data, int n) {
-    // NOTE: this takes the first value encountered to be the representative of all duplicate values (frequencies)
-    // could change to take median value (median pixel value of duplicate frequencies), swapping/removing others
     int border = n - 1;
     for (int i = 0; i < n; i += 1) {
         for (int k = i; k <= border; k += 1) {
@@ -269,9 +237,12 @@ Window *new_window_sq(int width, int pos) {
 }
 
 // NOTE: wpos specifies index of top-left corner of window in data array
-uint16_t *read_window(uint16_t *data, int n, int nwidth, Window *win) {
-
+uint16_t *read_window(uint16_t *data, int n, int nwidth, uint16_t *wdata, Window *win) {
+    // WIP
     // need to take window pos from center coords to top left coords
+    int wrow = (win->pos / nwidth) - (win->w >> 1);
+    int wcol = (win->pos % nwidth) - (win->w >> 1);
+    win->pos = (wrow * nwidth) + wcol;
 
     // compute data bounds
     int drows = n / nwidth;
@@ -287,11 +258,13 @@ uint16_t *read_window(uint16_t *data, int n, int nwidth, Window *win) {
     int wrows = brr - tlr;
     int wcols = brc - tlc;
 
+    // updates w/ clipped boundaries
     win->a = wrows;
     win->b = wcols;
     win->len = wrows * wcols;
 
-    uint16_t *wdata = (uint16_t*) malloc(sizeof(uint16_t) * win->len);
+    printf("len: %hu\n", win->len);
+
     for (int i = 0; i < win->len; i += 1) {
         // compute window-coords
         int r = i / win->b, c = i % win->b;
