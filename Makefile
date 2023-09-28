@@ -6,7 +6,7 @@ EXENAME = pgm
 # Directories
 SRC_DIR = src
 INCLUDE_DIR = inc
-PART_DIR = AS1
+AS_DIR ?= AS1
 
 # List of all parts
 PARTS = part1 part2 part3 part4 test
@@ -26,15 +26,16 @@ $(SRC_DIR)/%.o: $(SRC_DIR)/%.c $(COMMON_HEADER_FILES)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 # Rule to build the executable binary for each part
-$(PARTS): %: $(PART_DIR)/%/$(EXENAME)
+$(PARTS): %: $(AS_DIR)/%/$(EXENAME)
 
 # Rule to build the executable binary for a specific part
-$(PART_DIR)/%/$(EXENAME): $(PART_DIR)/%/driver.c $(COMMON_OBJ_FILES) $(COMMON_HEADER_FILES)
+$(AS_DIR)/%/$(EXENAME): $(AS_DIR)/%/driver.c $(COMMON_OBJ_FILES) $(COMMON_HEADER_FILES)
 	$(CC) $(CFLAGS) $^ -o $@
 
 # Clean rule
 clean:
-	rm -f $(SRC_DIR)/*.o $(PART_DIR)/*/$(EXENAME)
+	rm -f $(SRC_DIR)/*.o $(AS_DIR)/*/$(EXENAME)
+	rm -f $(foreach part,$(PARTS),$(PART_DIR)/$(part)/$(EXENAME))
 
 .PHONY: all clean
 
