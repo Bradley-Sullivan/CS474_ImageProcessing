@@ -4,6 +4,8 @@
 
 This is a repository for CS474/674 Image Processing programming assignments.
 
+(https://github.com/Bradley-Sullivan/CS474_ImageProcessing)
+
 ### Authors
 
 Mohammed Ibrahimm (CS674) (m.s.ibrahim@nevada.unr.edu)
