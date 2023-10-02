@@ -45,9 +45,6 @@ Parts programmed in C will require:
 - An installation of Make [https://www.gnu.org/software/make/]
 - An installation of GCC [https://gcc.gnu.org/]
 
-Parts written in MATLAB will require:
-- MATLAB stuff idk...
-
 ### Parts in C
 
 The parts of assignments programmed in C will need to be compiled from source before they can be executed.
