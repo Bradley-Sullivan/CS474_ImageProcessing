@@ -33,12 +33,12 @@ Image *image_specify_hist(Image *input, Image *spec) {
     compute_hist(input, &in_hist);
     compute_hist(spec, &spec_hist);
 
-    // compute pixel probabilities across input images
+    // compute pixel probabilities across input images (PDFs)
     compute_pix_prob(input->size, input->q, in_hist, &in_prob);
     compute_pix_prob(spec->size, spec->q, spec_hist, &spec_prob);
 
-    // obtain equalization transformations
-    equalize_hist(input->q, in_hist, in_prob); // obtain T(r)
+    // obtain equalization transformations (CDFs)
+    equalize_hist(input->q, in_hist, in_prob);      // obtain T(r)
     equalize_hist(spec->q, spec_hist, spec_prob);   // obtain G(z)
 
     // compute inverse mapping for specified histogram
@@ -87,9 +87,10 @@ Image *image_hist_eq(Image *input) {
 
     compute_hist(img, &hist);
 
+    // obtain pixel probabilities (PDF)
     compute_pix_prob(img->size, img->q, hist, &prob);
 
-    // compute contrast equalization transform
+    // compute contrast equalization transform (CDF)
     equalize_hist(img->q, hist, prob);
 
     // apply equalized transform
@@ -104,6 +105,7 @@ Image *image_hist_eq(Image *input) {
 Image *image_rescale(Image *input, int factor) {
     int newr = input->m * factor, newc = input->n * factor;
     int newsize = newr * newc;
+    
     Image *img = new_image(newr, newc, input->q);
 
     uint8_t *new_data = (uint8_t*) malloc(sizeof(uint8_t) * newsize);
@@ -147,7 +149,9 @@ Image *image_requantize(Image *input, int bits, int inv) {
     
     uint8_t c = img->q >> (1 << (bits - 1));
 
-    for (int i = 0; i < img->size; i += 1) img->data[i] = (uint8_t)(((float)img->data[i] / img->q) * (1 << bits)) * c;
+    for (int i = 0; i < img->size; i += 1) {
+        img->data[i] = (uint8_t)((float)img->data[i] / img->q * (1 << bits) * c);
+    }
 
     return img;
 }
@@ -214,66 +218,27 @@ int make_set(uint16_t *data, int n) {
     return border;      // return deduplicated partition index
 }
 
-Window *new_window(int a, int b, int pos) {
-    Window *ret = (Window*) malloc(sizeof(Window));
+uint16_t read_image_window(Image *img, uint16_t *win, uint8_t k, uint16_t pos) {
+    int posc = pos % img->n, posr = pos / img->n;
 
-    ret->w = a;
-    ret->a = a; ret->b = b;
-    ret->len = a * b;
-    ret->pos = pos;
+    int tlr = fmax(0, posr - (k >> 1));
+    int brr = fmin(img->m, posr + (k >> 1) + 1);
+    int tlc = fmax(0, posc - (k >> 1));
+    int brc = fmin(img->n, posc + (k >> 1) + 1);
 
-    return ret;
-}
-
-Window *new_window_sq(int width, int pos) {
-    Window *ret = (Window*) malloc(sizeof(Window));
-
-    ret->w = width;
-    ret->a = width; ret->b = width;
-    ret->len = width * width;
-    ret->pos = pos;
-
-    return ret;
-}
-
-// NOTE: wpos specifies index of top-left corner of window in data array
-uint16_t *read_window(uint16_t *data, int n, int nwidth, uint16_t *wdata, Window *win) {
-    // WIP
-    // need to take window pos from center coords to top left coords
-    int wrow = (win->pos / nwidth) - (win->w >> 1);
-    int wcol = (win->pos % nwidth) - (win->w >> 1);
-    win->pos = (wrow * nwidth) + wcol;
-
-    // compute data bounds
-    int drows = n / nwidth;
-    int dcols = nwidth;
-
-    // compute window clipping params
-    int tlr = fmax(win->pos / nwidth, 0);
-    int brr = fmin(tlr + win->w, drows);
-    int tlc = fmax(win->pos % nwidth, 0);
-    int brc = fmin(tlc + win->w, dcols);
-
-    // clip window size
     int wrows = brr - tlr;
     int wcols = brc - tlc;
+    int wsize = wrows * wcols;
 
-    // updates w/ clipped boundaries
-    win->a = wrows;
-    win->b = wcols;
-    win->len = wrows * wcols;
-
-    printf("len: %hu\n", win->len);
-
-    for (int i = 0; i < win->len; i += 1) {
-        // compute window-coords
-        int r = i / win->b, c = i % win->b;
-        // compute window position in data-coords
-        int didx = (r + tlr) * nwidth + (tlc + c);
-        wdata[i] = data[didx];
+    int base_offset = tlr * img->n + tlc;
+    for (int i = 0; i < wrows; i += 1) {
+        for (int k = 0; k < wcols; k += 1) {
+            int didx = base_offset + (i * img->n) + k;
+            win[i * wcols + k] = img->data[didx];
+        }
     }
 
-    return wdata; 
+    return wsize;
 }
 
 
