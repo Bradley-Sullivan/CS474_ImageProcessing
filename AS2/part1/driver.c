@@ -14,9 +14,10 @@ int main(void) {
 
     write_image("corr_test.pgm", image_hist_eq(out));
 
-    image_add(lenna, image_hist_eq(out), out);
+    Image *sum = image_add(lenna, image_hist_eq(out));
 
-    write_image("corr_test_add.pgm", out);
+    write_image("corr_test_add.pgm", sum);
+    write_image("corr_test.pgm", image_hist_eq(out));
 
     del_image(lenna); del_mask(mask); del_image(out);
 

@@ -9,11 +9,11 @@
 void add_snp_noise(Image *img, float pct);
 
 int main(void) {
-    Image *input = load_image("boat.pgm");
+    Image *input = load_image("clouds.pgm");
     
-    add_snp_noise(input, 0.99f);
+    add_snp_noise(input, 0.20f);
 
-    Image *out = image_median_filter(input, 32);
+    Image *out = image_median_filter(input, 3);
 
     write_image("noise.pgm", input);
     write_image("filtered.pgm", out);
