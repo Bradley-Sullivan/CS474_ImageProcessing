@@ -8,19 +8,18 @@ This is a repository for CS474/674 Image Processing programming assignments.
 
 ### Authors
 
-Mohammed Ibrahimm (CS674) (m.s.ibrahim@nevada.unr.edu)
+Mohammed Ibrahim (CS674) (m.s.ibrahim@nevada.unr.edu)
 
 Bradley Sullivan (CS474) (bradleysullivan@nevada.unr.edu)
 
 ### Description
 
-Here you will find MATLAB and/or C implementations of common to advanced image processing techniques. Specific assignments are separated into their own folder-heirarchy, composed of subdirectories corresponding to each assignment part.
+Here you will find C implementations of common to advanced image processing techniques. Specific course assignments are separated into their own folder-heirarchy, composed of subdirectories corresponding to each assignment part.
     
     /CS474_ImageProcessing
         /AS1
             /part1
                 <C program driver>
-                <MATLAB script>
             /part2
                 ...
             /part3
@@ -51,7 +50,7 @@ The parts of assignments programmed in C will need to be compiled from source be
 
 To compile a specific part with a C-implementation, execute the following command from the root of the cloned or downloaded repository:
 
-    make [AS_DIR] [part]
+    make [AS_DIR=AS1] [part]
 
         [AS_DIR]    -> assignment directory to match (default=AS1)
         [part]      -> specific part directory to match (default=ALL)
@@ -75,8 +74,4 @@ In order to run `pgm`, enter this command into your terminal from the specific p
 NOTE: **Different programs for different assignments/parts may require user-supplied command-line arguments. First try executing without any arguments, if arguments are required a print statement will detail the correct program usage. Otherwise the program will have run as intended.**
 
 This will run the compiled program. Any program output will be placed beside this executable. This includes any output images.
-
-### Parts in MATLAB
-
-TODO
 
