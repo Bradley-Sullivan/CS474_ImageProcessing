@@ -43,28 +43,44 @@ float sample_gauss(int x, int y, float sigma) {
     return exp(ex) / (2 * M_PI * sigma * sigma);
 }
 
-void image_add(Image *a, Image *b, Image *result) {
+Image *image_add(Image *a, Image *b) {
+    Image *result = new_image(a->m, a->n, a->q);
     for (size_t i = 0; i < a->size; i += 1) {
-        result->data[i] = (uint8_t) (a->data[i] + b->data[i]);
+        result->data[i] = (uint8_t) fmin(a->q, a->data[i] + b->data[i]);
     }
+    return result;
 }
 
-void image_sub(Image *a, Image *b, Image *result) {
+Image *image_sub(Image *a, Image *b) {
+    Image *result = new_image(a->m, a->n, a->q);
     for (size_t i = 0; i < a->size; i += 1) {
-        result->data[i] = (uint8_t) fmin(0,a->data[i] - b->data[i]);
+        result->data[i] = (uint8_t) fmax(0, a->data[i] - b->data[i]);
     }
+    return result;
 }
 
-void image_xor(Image *a, Image *b, Image *result) {
+Image *image_xor(Image *a, Image *b) {
+    Image *result = new_image(a->m, a->n, a->q);
     for (size_t i = 0; i < a->size; i += 1) {
-        result->data[i] = a->data[i] ^ b->data[i];
+        result->data[i] = (uint8_t) a->data[i] ^ b->data[i];
     }
+    return result;
 }
 
-void image_and(Image *a, Image *b, Image *result) {
+Image *image_and(Image *a, Image *b) {
+    Image *result = new_image(a->m, a->n, a->q);
     for (size_t i = 0; i < a->size; i += 1) {
-        result->data[i] = a->data[i] & b->data[i];
+        result->data[i] = (uint8_t) a->data[i] & b->data[i];
     }
+    return result;
+}
+
+Image *image_thresh(Image *img, uint8_t t) {
+    Image *ret = copy_image(img);
+    for (size_t i = 0; i < img->size; i += 1) {
+        ret->data[i] = (ret->data[i] < t) ? 0 : ret->q;
+    }
+    return ret;
 }
 
 Image *image_specify_hist(Image *input, Image *spec) {
@@ -141,7 +157,7 @@ Image *image_rescale(Image *input, int factor) {
     uint8_t *new_data = (uint8_t*) malloc(sizeof(uint8_t) * newsize);
     for (int i = 0; i < newr; i += 1) {
         for (int k = 0; k < newc; k += 1) {
-            int input_idx = (i / factor) * input->n + (k / factor);
+            size_t input_idx = (i / factor) * input->n + (k / factor);
             new_data[i * newc + k] = input->data[input_idx];
         }
     }
@@ -163,10 +179,9 @@ Image *image_subsample(Image *input, int factor) {
     Image *img = new_image(m, n, input->q);
     if (!img) return NULL;
 
-    int idx = 0;
-
-    for (int i = 0; i < input->m; i += factor) {
-        for (int k = 0; k < input->n; k += factor) {
+    size_t idx = 0;
+    for (size_t i = 0; i < input->m; i += factor) {
+        for (size_t k = 0; k < input->n; k += factor) {
             img->data[idx++] = input->data[i * input->n + k];
         }
     }
@@ -174,13 +189,14 @@ Image *image_subsample(Image *input, int factor) {
     return img;
 }
 
-Image *image_requantize(Image *input, int bits, int inv) {
+Image *image_requantize(Image *input, uint8_t bits) {
     Image *img = copy_image(input);
     
-    uint8_t c = img->q >> (1 << (bits - 1));
+    int levels = 1 << (bits);           // # of levels
+    float comp = (float)input->q / levels;  // dist between levels
 
     for (int i = 0; i < img->size; i += 1) {
-        img->data[i] = (uint8_t)((float)img->data[i] / img->q * (1 << bits) * c);
+        img->data[i] = (uint8_t) (((float)img->data[i] / UINT8_MAX) * levels) * comp;
     }
 
     return img;
@@ -243,10 +259,11 @@ Image *image_median_filter(Image *img, int k) {
     return out;
 }
 
-Image *image_unsharp_mask(Image *img, Image *diff) {
-    Image *out = new_image(img->m, img->n, img->q);
+Image *image_unsharp_mask(Image *img, Image *smooth) {
+    Image *diff = image_sub(img, smooth);
+    Image *out = image_add(img, diff);
 
-    image_add(img, diff, out);
+    del_image(diff);
 
     return out;
 }
@@ -261,57 +278,89 @@ Image *image_high_boost(Image *img, Image *diff, float k) {
     return out;
 }
 
-void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, float*, int, int)) {
+// NEED TO REVISE THE 2 FUNCTIONS BELOW
+//  laplacian probably isn't mapping derivatives correctly
+//  gradient is a pain to use and also probably isnt mapping correctly
+
+void image_gradient(Image *img, Image *dx, Image *dy, int prewitt_sobel) {
+    Mask *d = new_mask(3, 3);
+
+    for (int i = 0; i < 3 * 3; i += 1) {
+        d->data[i] = 1 - (i % 3);
+        if (i / 3 == 1) d->data[i] *= prewitt_sobel;
+    }
+
+    image_iter_window(img, dx, d, convolve_cb);
+
+    for (int i = 0; i < 3 * 3; i += 1) {
+        d->data[i] = 1 - (i / 3);
+        if (i % 3 == 1) d->data[i] *= prewitt_sobel;
+    }
+
+    image_iter_window(img, dy, d, convolve_cb);
+}
+
+Image *image_laplacian(Image *img) {
+    float DD[9] = { 0, 1, 0, 1, -4, 1, 0, 1, 0 };
+    Image *out = new_image(img->m, img->n, img->q);
+    Mask d = (Mask){3, 3, 9, 0, DD};
+
+    image_iter_window(img, out, &d, convolve_cb);
+    
+    return out;
+}
+
+void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
     uint16_t *window = (uint16_t*) calloc(mask->size, sizeof(uint16_t));
     uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * (mask->n + 1));
     for (int i = 0; i < mask->n + 1; i += 1 ) wswap[i] = (uint16_t*) calloc(mask->m, sizeof(uint16_t));
 
-    uint32_t wsize = 0;
     uint16_t nh = mask->n >> 1;
+    for (uint32_t i = 0; i < data->m; i += 1) {
+        for (uint32_t k = 0; k < data->n; k += 1) {
+            size_t idx = i * data->n + k;
+            if (k == 0) {
+                for (int j = 0; j < nh + 1; j += 1) {
+                    read_image_window(data, wswap[j + nh], mask->m, 1, idx + j);
+                }
+            } else {
+                uint32_t off = (k + nh >= data->n) ? data->n - 1 : k + nh;
+                read_image_window(data, wswap[mask->n], mask->m, 1, i * data->n + off);
 
-    for (size_t i = 0; i < data->size; i += 1) {
-        if (i % data->n == 0) {
-            for (int k = 0; k < nh + 1; k += 1) {
-                wsize = read_image_window(data, wswap[k + nh], mask->m, 1, i + k);
+                // shift columns ->
+                uint16_t *sw = wswap[0];
+                for (int j = 0; j < mask->n; j += 1) wswap[j] = wswap[j + 1];
+                wswap[mask->n] = sw;
             }
-        } else {
-            wsize = read_image_window(data, wswap[mask->n], mask->m, 1, fmin(i + (data->n - (i % data->n)) - 1, i + nh));
 
-            // shift columns ->
-            uint16_t *sw = wswap[0];
-            for (int k = 0; k < mask->n; k += 1) {
-                wswap[k] = wswap[k + 1];
-            }
-            wswap[mask->n] = sw;
+            uint32_t c = op(wswap, mask);
+            out->data[idx] = c;
         }
-
-        // apply operation
-        uint32_t c = op(wswap, mask->data, mask->n, mask->size);
-        out->data[i] = c;
     }
 
     if (window) free(window); 
     if (wswap) free(wswap);
 }
 
-uint32_t correlate_cb(uint16_t **window, float *mask, int width, int len) {
+uint32_t correlate_cb(uint16_t **window, Mask* mask) {
     float acc = 0;
-    for (int i = 0; i < len; i += 1) {
-        acc += mask[i] * (float)window[i % width][i / width];
+    for (int i = 0; i < mask->size; i += 1) {
+        acc += mask->data[i] * (float)window[i % mask->n][i / mask->n];
     }
 
     return (uint32_t)acc;
 }
 
-uint32_t convolve_cb(uint16_t **window, float *mask, int width, int len) {
+uint32_t convolve_cb(uint16_t **window, Mask* mask) {
     float acc = 0;
-    for (int i = 0; i < len; i += 1) {
-        acc += mask[i] * (float)window[width - (i % width) - 1][(len / width) - (i / width) - 1];
+    for (int i = 0; i < mask->size; i += 1) {
+        acc += mask->data[i] * (float)window[mask->n - (i % mask->n) - 1][(mask->size / mask->n) - (i / mask->n) - 1];
     }
+
+    acc = (acc < 0) ? 0 : (acc > UINT32_MAX) ? UINT32_MAX : acc;
 
     return (uint32_t)acc;
 }
-
 
 // sorts on array indices in-place. preserves index -> value mappings if required
 void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask) {
@@ -360,9 +409,9 @@ void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask) {
     msb_radixsort(data, zh, obin, mask);    // recursively sorts one bin
 }
 
-uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, uint32_t pos) {
+uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size_t pos) {
     uint8_t mh = m >> 1, nh = n >> 1;
-    int posc = pos % img->n, posr = pos / img->n;
+    int32_t posc = pos % img->n, posr = pos / img->n;
 
     int tlr = (posr - mh > 0) ? posr - mh : 0;
     int brr = (posr + mh + 1 < img->m) ? posr + mh + 1 : img->m;
@@ -379,28 +428,11 @@ uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, uint
     int base_offset = tlr * img->n + tlc;
     for (int i = 0; i < wrows; i += 1) {
         for (int k = 0; k < wcols; k += 1) {
-            int didx = base_offset + (i * img->n) + k;
+            uint32_t didx = base_offset + (i * img->n) + k;
             win[(i + rowsh) * n + k + colsh] = img->data[didx];
         }
     }
 
     return wsize;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+                               
