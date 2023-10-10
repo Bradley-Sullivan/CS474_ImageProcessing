@@ -1,6 +1,6 @@
 # Compiler and compiler flags
 CC = gcc
-CFLAGS = -g -O2 -Wall -I./inc -lm
+CFLAGS = -g -O3 -Wall -I./inc -lm
 EXENAME = pgm
 
 # Directories
@@ -9,7 +9,7 @@ INCLUDE_DIR = inc
 AS_DIR ?= AS1
 
 # List of all parts
-PARTS = part1 part2 part3 part4 test
+PARTS = part1 part2 part3 part4 part5 part6		test
 
 # Common source files
 COMMON_SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
@@ -37,3 +37,4 @@ clean:
 	rm -f $(SRC_DIR)/*.o */*/$(EXENAME)
 
 .PHONY: all clean
+
