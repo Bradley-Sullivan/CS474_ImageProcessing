@@ -7,12 +7,12 @@
 #include "util.h"
 
 int main(void) {
-    Image *input = load_image("catstronaut.pgm");
+    Image *input = load_image("clouds.pgm");
     
-    Image *l = image_laplacian(image_gauss(image_hist_eq(input), 1.4));
+    Image *l = image_hist_eq(image_laplacian(image_gauss(input, 1.4)));
 
     write_image("laplacian.pgm", l);
-    write_image("lthresh.pgm", image_thresh(l, 2));
+    write_image("lthresh.pgm", image_thresh(l, 30));
 
     del_image(input); del_image(l);
 
