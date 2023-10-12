@@ -14,6 +14,12 @@
 #define SOBEL      2
 #define SCHARR     3
 
+#define ROWMAJOR   1
+#define COLMAJOR   -1
+
+#define DEG2RAD    (M_PI / 180.0f)
+#define RAD2DEG    (180.0f / M_PI)
+
 int compute_hist(Image *img, uint16_t **dest_hist);
 int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob);
 int equalize_hist(int q, uint16_t *hist, float *prob);
@@ -35,14 +41,15 @@ Image *image_average(Image *img, int k);
 Image *image_gauss(Image *img, float sig);
 Image *image_median_filter(Image *img, int k);
 Image *image_unsharp_mask(Image *img, Image *smooth);
-Image *image_high_boost(Image *img, Image *diff, float k);
-void image_gradient(Image *img, Image *dx, Image *dy, int prewitt_sobel);
+Image *image_high_boost(Image *img, Image *diff, float k);  // need to fix
+Image *image_gradient(Image *img, int prewitt_sobel);
 Image *image_laplacian(Image *img);
 
-void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*));
+void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*), int dir);
 
 uint32_t correlate_cb(uint16_t **window, Mask* mask);
 uint32_t convolve_cb(uint16_t **window, Mask* mask);
+uint32_t laplacian_cb(uint16_t **window, Mask* mask);
 
 void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask);
 void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask);

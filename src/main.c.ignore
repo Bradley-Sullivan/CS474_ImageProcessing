@@ -1,0 +1,62 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <inttypes.h>
+#include <getopt.h>
+#include <stdarg.h>
+
+#include <curses.h>
+#include <menu.h>
+
+#include "util.h"
+
+typedef void (*ImageOp)(Image *, ...);
+typedef enum { basic, value_input, value_select, value_edit } ItemType;
+
+typedef struct {
+    char *name;         // name of item
+    char *desc;         // item description
+    int num_args;       // number of required arguments
+    ItemType *itype;    // types of required arguments
+
+    ImageOp wrapper;    // operation wrapper function
+} OperationInitializer;
+
+typedef struct {
+    ImageOp operation_cb;       // operation implementation function
+    va_list operation_args;     // operation arguments
+    Image *output;              // operation output
+} ImageOperation;
+
+// IMAGE OPERATION ENTRY POINTS
+void wrap_thresh(Image *input, ...);
+void wrap_hist_eq(Image *input, ...);
+void wrap_specify_hist(Image *input, ...);
+void wrap_subsample(Image *input, ...);
+void wrap_rescale(Image *input, ...);
+void wrap_requantize(Image *input, ...);
+void wrap_correlate(Image *input, ...);
+void wrap_average(Image *input, ...);
+void wrap_gauss(Image *input, ...);
+void wrap_median_filter(Image *input, ...);
+void wrap_unsharp_mask(Image *input, ...);
+void wrap_high_boost(Image *input, ...);
+void wrap_gradient(Image *input, ...);
+void wrap_laplacian(Image *input, ...);
+
+OperationInitializer iops[] = {
+                                {"Threshold", "", 1, {value_input}, wrap_thresh},
+                                {"Histogram Equalization", "", 0, NULL, wrap_hist_eq},
+                            };
+
+int main(void) {	
+	initscr();
+	cbreak();
+	noecho();
+	keypad(stdscr, TRUE);
+	
+	
+	endwin();
+
+    return 0;
+}

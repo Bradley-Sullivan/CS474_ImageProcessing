@@ -38,7 +38,6 @@ int equalize_hist(int q, uint16_t *hist, float *prob) {
 }
 
 float sample_gauss(int x, int y, float sigma) {
-    // float nx = (float)x / sigma, ny = (float)y / sigma;
     float ex = -( x * x + y * y) / (2 * sigma * sigma);
     return exp(ex) / (2 * M_PI * sigma * sigma);
 }
@@ -205,7 +204,7 @@ Image *image_requantize(Image *input, uint8_t bits) {
 Image *image_correlate(Image *img, Mask *mask) {
     Image *out = new_image(img->m, img->n, img->q);
 
-    image_iter_window(img, out, mask, correlate_cb);
+    image_iter_window(img, out, mask, correlate_cb, ROWMAJOR);
 
     return out;
 }
@@ -218,7 +217,7 @@ Image *image_average(Image *img, int k) {
         mask->data[i] = 1.0f / mask->size;
     }
 
-    image_iter_window(img, out, mask, correlate_cb);
+    image_iter_window(img, out, mask, correlate_cb, ROWMAJOR);
 
     del_mask(mask);
 
@@ -238,7 +237,7 @@ Image *image_gauss(Image *img, float sig) {
         }
     }
 
-    image_iter_window(img, out, kernel, convolve_cb);
+    image_iter_window(img, out, kernel, convolve_cb, ROWMAJOR);
 
     del_mask(kernel);
 
@@ -278,11 +277,10 @@ Image *image_high_boost(Image *img, Image *diff, float k) {
     return out;
 }
 
-// NEED TO REVISE THE 2 FUNCTIONS BELOW
-//  laplacian probably isn't mapping derivatives correctly
-//  gradient is a pain to use and also probably isnt mapping correctly
-
-void image_gradient(Image *img, Image *dx, Image *dy, int prewitt_sobel) {
+Image *image_gradient(Image *img, int prewitt_sobel) {
+    Image *dx = new_image(img->m, img->n, img->q);
+    Image *dy = new_image(img->m, img->n, img->q);
+    Image *out = new_image(img->m, img->n, img->q);
     Mask *d = new_mask(3, 3);
 
     for (int i = 0; i < 3 * 3; i += 1) {
@@ -290,14 +288,20 @@ void image_gradient(Image *img, Image *dx, Image *dy, int prewitt_sobel) {
         if (i / 3 == 1) d->data[i] *= prewitt_sobel;
     }
 
-    image_iter_window(img, dx, d, convolve_cb);
+    image_iter_window(img, dx, d, convolve_cb, ROWMAJOR);
 
     for (int i = 0; i < 3 * 3; i += 1) {
         d->data[i] = 1 - (i / 3);
         if (i % 3 == 1) d->data[i] *= prewitt_sobel;
     }
 
-    image_iter_window(img, dy, d, convolve_cb);
+    image_iter_window(img, dy, d, convolve_cb, COLMAJOR);
+
+    for (int i = 0; i < img->size; i += 1) {
+        out->data[i] = sqrt(dx->data[i] * dx->data[i] + dy->data[i] * dy->data[i]);
+    }
+
+    return out;
 }
 
 Image *image_laplacian(Image *img) {
@@ -305,13 +309,12 @@ Image *image_laplacian(Image *img) {
     Image *out = new_image(img->m, img->n, img->q);
     Mask d = (Mask){3, 3, 9, 0, DD};
 
-    image_iter_window(img, out, &d, convolve_cb);
+    image_iter_window(img, out, &d, laplacian_cb, ROWMAJOR);
     
     return out;
 }
 
-void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
-    uint16_t *window = (uint16_t*) calloc(mask->size, sizeof(uint16_t));
+void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*), int dir) {
     uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * (mask->n + 1));
     for (int i = 0; i < mask->n + 1; i += 1 ) wswap[i] = (uint16_t*) calloc(mask->m, sizeof(uint16_t));
 
@@ -324,8 +327,8 @@ void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint1
                     read_image_window(data, wswap[j + nh], mask->m, 1, idx + j);
                 }
             } else {
-                uint32_t off = (k + nh >= data->n) ? data->n - 1 : k + nh;
-                read_image_window(data, wswap[mask->n], mask->m, 1, i * data->n + off);
+                uint32_t off = 2 * k + nh - data->n;
+                read_image_window(data, wswap[mask->n], mask->m, 1, idx + off);
 
                 // shift columns ->
                 uint16_t *sw = wswap[0];
@@ -338,7 +341,6 @@ void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint1
         }
     }
 
-    if (window) free(window); 
     if (wswap) free(wswap);
 }
 
@@ -360,6 +362,15 @@ uint32_t convolve_cb(uint16_t **window, Mask* mask) {
     acc = (acc < 0) ? 0 : (acc > UINT32_MAX) ? UINT32_MAX : acc;
 
     return (uint32_t)acc;
+}
+
+uint32_t laplacian_cb(uint16_t **window, Mask* mask) {
+    float acc = 0;
+    for (int i = 0; i < mask->size; i += 1) {
+        acc += mask->data[i] * (float)window[mask->n - (i % mask->n) - 1][(mask->size / mask->n) - (i / mask->n) - 1];
+    }
+
+    return acc;
 }
 
 // sorts on array indices in-place. preserves index -> value mappings if required
@@ -435,4 +446,25 @@ uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size
 
     return wsize;
 }
-                               
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

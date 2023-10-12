@@ -127,7 +127,8 @@ int write_image(const char *fname, Image *img) {
     fprintf(fp, "P5\n%d %d\n%d\n", img->m, img->n, img->q);
 
     // writes data
-    if (!fwrite(img->data, sizeof(uint8_t), img->size, fp)) {
+    size_t wsize = fwrite(img->data, sizeof(uint8_t), img->size, fp);
+    if (wsize != img->size) {
         fprintf(stderr, "Error writing image data to file.\n");
         return 1;
     }
