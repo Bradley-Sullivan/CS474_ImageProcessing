@@ -204,7 +204,7 @@ Image *image_requantize(Image *input, uint8_t bits) {
 Image *image_correlate(Image *img, Mask *mask) {
     Image *out = new_image(img->m, img->n, img->q);
 
-    image_iter_window(img, out, mask, correlate_cb, ROWMAJOR);
+    image_iter_window(img, out, mask, correlate_cb, COLMAJOR);
 
     return out;
 }
@@ -315,26 +315,51 @@ Image *image_laplacian(Image *img) {
 }
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*), int dir) {
-    uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * (mask->n + 1));
-    for (int i = 0; i < mask->n + 1; i += 1 ) wswap[i] = (uint16_t*) calloc(mask->m, sizeof(uint16_t));
+    uint16_t ws_height = (dir >= 0) ? mask->n + 1 : mask->m + 1;
+    uint16_t ws_width  = (dir >= 0) ? mask->m     : mask->n;
 
-    uint16_t nh = mask->n >> 1;
-    for (uint32_t i = 0; i < data->m; i += 1) {
-        for (uint32_t k = 0; k < data->n; k += 1) {
-            size_t idx = i * data->n + k;
-            if (k == 0) {
+    uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * ws_height);
+    for (int i = 0; i < ws_height; i += 1 ) wswap[i] = (uint16_t*) calloc(ws_width, sizeof(uint16_t));
+
+    uint16_t nh = mask->n >> 1, mh = mask->m >> 1;
+    uint16_t i_bound = (dir >= 0) ? data->m : data->n;
+    uint16_t k_bound = (dir >= 0) ? data->n : data->m;
+
+    for (uint32_t i = 0; i < i_bound; i += 1) {
+        for (uint32_t k = 0; k < k_bound; k += 1) {
+            size_t idx = (dir >= 0) ? i * data->n + k : k * data->m + i;
+            if (k == 0 && dir >= 0) {
                 for (int j = 0; j < nh + 1; j += 1) {
-                    read_image_window(data, wswap[j + nh], mask->m, 1, idx + j);
+                    read_image_window(data, wswap[j + nh], ws_width, 1, idx + j);
+                }
+            } else if (k == 0 && dir < 0) {
+                for (int j = 0; j < mh + 1; j += 1) {
+                    read_image_window(data, wswap[j + mh], 1, ws_width, idx + (j * data->n));
                 }
             } else {
-                uint32_t off = 2 * k + nh - data->n;
-                read_image_window(data, wswap[mask->n], mask->m, 1, idx + off);
+                if (dir >= 0) {
+                    uint32_t off = nh + (k / (data->n - nh)) * (k - data->n);
+                    read_image_window(data, wswap[ws_height - 1], ws_width, 1, idx + off);
+                } else {
+                    uint32_t off = (mh + (k / (data->m - mh)) * (k - data->m)) * data->n;
+                    read_image_window(data, wswap[ws_height - 1], 1, ws_width, idx + off);
+                }
 
                 // shift columns ->
                 uint16_t *sw = wswap[0];
-                for (int j = 0; j < mask->n; j += 1) wswap[j] = wswap[j + 1];
-                wswap[mask->n] = sw;
+                for (int j = 0; j < ws_height - 1; j += 1) wswap[j] = wswap[j + 1];
+                wswap[ws_height - 1] = sw;
             }
+
+            for (int i = 0; i < mask->n; i += 1) {
+                for (int k = 0; k < mask->m; k += 1) {
+                    printf(" %hu", wswap[i][k]);
+                }
+                printf("\n");
+            }
+
+            char ch;
+            scanf("%c", &ch);
 
             uint32_t c = op(wswap, mask);
             out->data[idx] = c;
