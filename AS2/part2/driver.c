@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
     float sigma = 1.4f;
     char fname[32]; strcpy(fname, "catstronaut.pgm");
 
-    while ((option = getopt_long(argc, argv, "i:a:g", loptions, &op_index)) != -1) {
+    while ((option = getopt_long(argc, argv, "i:a:g:h", loptions, &op_index)) != -1) {
         switch (option) {
             case 'a':
                 if (optarg) sscanf(optarg, "%d", &avg_size);
@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
                 printf("Correct Usage:\n\t%s [input] [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=catstronaut.pgm)     \
                                 \n\t-a, --average [int] --> size of average mask (default=3)\n\t-g, --gauss [float] --> standard deviation (sigma) (default=1.4f)\n\n");
-                break;
+                return 0;
         }
     }
 
