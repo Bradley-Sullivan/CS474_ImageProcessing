@@ -55,10 +55,12 @@ int main(int argc, char *argv[]) {
 
     uint16_t *hist = NULL; compute_hist(corr_sum, &hist);
 
-    uint32_t th = calculate_thresh(mask->size, hist, input->q);
+    uint32_t th = calculate_thresh(mask->size * 2, hist, input->q);
     Image *thresh = image_thresh(corr_sum, (uint8_t)th);
 
     write_image("threshold.pgm", thresh);
+
+    write_image("thresh_sum.pgm", image_add(thresh, input));
 
     return 0;
 }
