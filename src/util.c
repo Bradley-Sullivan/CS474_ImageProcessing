@@ -57,9 +57,11 @@ Image *rotate_image90(Image *img) {
 
 Image *image_add(Image *a, Image *b) {
     Image *result = new_image(a->m, a->n, a->q);
+
     for (size_t i = 0; i < a->size; i += 1) {
         result->data[i] = (uint8_t) fmin(a->q, a->data[i] + b->data[i]);
     }
+
     return result;
 }
 
@@ -88,10 +90,12 @@ Image *image_and(Image *a, Image *b) {
 }
 
 Image *image_thresh(Image *img, uint8_t t) {
-    Image *ret = copy_image(img);
+    Image *ret = new_image(img->m, img->n, img->q);
+    
     for (size_t i = 0; i < img->size; i += 1) {
-        ret->data[i] = (ret->data[i] < t) ? 0 : ret->q;
+        ret->data[i] = (img->data[i] < t) ? 0 : ret->q;
     }
+
     return ret;
 }
 
@@ -238,21 +242,21 @@ Image *image_average(Image *img, int k) {
 }
 
 Image *image_gauss(Image *img, float sig) {
-    Image *out = new_image(img->m, img->n, img->q);
     int k = 5 * sig;
-    Mask *kernel = new_mask(k, k);
+    Image *out = new_image(img->m, img->n, img->q);
+    Mask *mask = new_mask(k, k);
 
     // sample gaussian w/ sig
-    uint32_t nh = kernel->n >> 1;
-    for (int i = 0; i < kernel->n; i += 1) {
-        for (int k = 0; k < kernel->n; k += 1) {
-            kernel->data[i * kernel->n + k] = sample_gauss(k - nh, i - nh, sig);
+    uint32_t nh = mask->n >> 1;
+    for (int i = 0; i < mask->n; i += 1) {
+        for (int k = 0; k < mask->n; k += 1) {
+            mask->data[i * mask->n + k] = sample_gauss(k - nh, i - nh, sig);
         }
     }
 
-    image_iter_window(img, out, kernel, convolve_cb);
+    image_iter_window(img, out, mask, convolve_cb);
 
-    del_mask(kernel);
+    del_mask(mask);
 
     return out;
 }
@@ -328,36 +332,41 @@ Image *image_laplacian(Image *img) {
 }
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
-    uint16_t ws_height = mask->n;
-    uint16_t ws_width = mask->m;
-    uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * (ws_height + 1));
-    for (int i = 0; i < ws_height + 1; i += 1 ) wswap[i] = (uint16_t*) calloc(ws_width, sizeof(uint16_t));
+    uint16_t ws_height = mask->n, ws_width = mask->m, nh = mask->n >> 1;
 
-    uint16_t nh = mask->n >> 1;
+    uint16_t **acc = (uint16_t**) malloc(sizeof(uint16_t*) * (ws_height + 1));
+    for (int i = 0; i < ws_height + 1; i += 1 ) acc[i] = (uint16_t*) calloc(ws_width, sizeof(uint16_t));
 
     for (uint32_t i = 0; i < data->m; i += 1) {
         for (uint32_t k = 0; k < data->n; k += 1) {
             size_t idx = i * data->n + k;
             if (k == 0) {
+                // at each zero column, accumulate in-range columns into window
                 for (int j = 0; j < nh + 1; j += 1) {
-                    read_image_window(data, wswap[j + nh], ws_height, 1, idx + j);
+                    read_image_window(data, acc[j + nh], ws_height, 1, idx + j);
                 }
             } else {
+                // calculate offset to column to read
                 size_t off = nh + (k / (data->n - nh)) * (k - data->n);
-                read_image_window(data, wswap[ws_height], ws_height, 1, idx + off);
+
+                // read column into extra window buffer
+                read_image_window(data, acc[ws_height], ws_height, 1, idx + off);
             
-                // shift columns ->
-                uint16_t *sw = wswap[0];
-                for (int j = 0; j < ws_height; j += 1) wswap[j] = wswap[j + 1];
-                wswap[ws_height] = sw;
+                // swap read column into active window
+                uint16_t *sw = acc[0];
+                for (int j = 0; j < ws_height; j += 1) acc[j] = acc[j + 1];
+                acc[ws_height] = sw;
             }
 
-            uint32_t c = op(wswap, mask);
+            // perform operation
+            uint32_t c = op(acc, mask);
+
+            // store transformed pixel
             out->data[idx] = c;
         }
     }
 
-    if (wswap) free(wswap);
+    free(acc);
 }
 
 uint32_t correlate_cb(uint16_t **window, Mask* mask) {
