@@ -25,6 +25,7 @@ int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob);
 int equalize_hist(int q, uint16_t *hist, float *prob);
 float sample_gauss(int x, int y, float sigma);
 
+Image *rotate_image90(Image *img);
 Image *image_add(Image *a, Image *b);
 Image *image_sub(Image *a, Image *b);
 Image *image_xor(Image *a, Image *b);
@@ -45,7 +46,7 @@ Image *image_high_boost(Image *img, Image *diff, float k);  // need to fix
 Image *image_gradient(Image *img, int prewitt_sobel);
 Image *image_laplacian(Image *img);
 
-void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*), int dir);
+void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*));
 
 uint32_t correlate_cb(uint16_t **window, Mask* mask);
 uint32_t convolve_cb(uint16_t **window, Mask* mask);

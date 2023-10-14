@@ -42,6 +42,19 @@ float sample_gauss(int x, int y, float sigma) {
     return exp(ex) / (2 * M_PI * sigma * sigma);
 }
 
+Image *rotate_image90(Image *img) {
+    Image *out = new_image(img->n, img->m, img->q);
+
+    size_t idx = 0;
+    for (int i = 0; i < img->m; i += 1) {
+        for (int k = 0; k < img->n; k += 1) {
+            out->data[idx++] = img->data[k * img->m + i];
+        }
+    }
+
+    return out;
+}
+
 Image *image_add(Image *a, Image *b) {
     Image *result = new_image(a->m, a->n, a->q);
     for (size_t i = 0; i < a->size; i += 1) {
@@ -204,7 +217,7 @@ Image *image_requantize(Image *input, uint8_t bits) {
 Image *image_correlate(Image *img, Mask *mask) {
     Image *out = new_image(img->m, img->n, img->q);
 
-    image_iter_window(img, out, mask, correlate_cb, ROWMAJOR);
+    image_iter_window(img, out, mask, correlate_cb);
 
     return out;
 }
@@ -217,7 +230,7 @@ Image *image_average(Image *img, int k) {
         mask->data[i] = 1.0f / mask->size;
     }
 
-    image_iter_window(img, out, mask, correlate_cb, ROWMAJOR);
+    image_iter_window(img, out, mask, correlate_cb);
 
     del_mask(mask);
 
@@ -237,7 +250,7 @@ Image *image_gauss(Image *img, float sig) {
         }
     }
 
-    image_iter_window(img, out, kernel, convolve_cb, ROWMAJOR);
+    image_iter_window(img, out, kernel, convolve_cb);
 
     del_mask(kernel);
 
@@ -288,14 +301,14 @@ Image *image_gradient(Image *img, int prewitt_sobel) {
         if (i / 3 == 1) d->data[i] *= prewitt_sobel;
     }
 
-    image_iter_window(img, dx, d, convolve_cb, ROWMAJOR);
+    image_iter_window(img, dx, d, convolve_cb);
 
     for (int i = 0; i < 3 * 3; i += 1) {
         d->data[i] = 1 - (i / 3);
         if (i % 3 == 1) d->data[i] *= prewitt_sobel;
     }
 
-    image_iter_window(img, dy, d, convolve_cb, COLMAJOR);
+    image_iter_window(img, dy, d, convolve_cb);
 
     for (int i = 0; i < img->size; i += 1) {
         out->data[i] = sqrt(dx->data[i] * dx->data[i] + dy->data[i] * dy->data[i]);
@@ -309,57 +322,35 @@ Image *image_laplacian(Image *img) {
     Image *out = new_image(img->m, img->n, img->q);
     Mask d = (Mask){3, 3, 9, 0, DD};
 
-    image_iter_window(img, out, &d, convolve_cb, ROWMAJOR);
+    image_iter_window(img, out, &d, convolve_cb);
     
     return out;
 }
 
-void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*), int dir) {
-    uint16_t ws_height = (dir >= 0) ? mask->n : mask->m;
-    uint16_t ws_width  = (dir >= 0) ? mask->m : mask->n;
-
-    uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * ws_height + 1);
+void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
+    uint16_t ws_height = mask->n;
+    uint16_t ws_width = mask->m;
+    uint16_t **wswap = (uint16_t**) malloc(sizeof(uint16_t*) * (ws_height + 1));
     for (int i = 0; i < ws_height + 1; i += 1 ) wswap[i] = (uint16_t*) calloc(ws_width, sizeof(uint16_t));
 
-    uint16_t nh = mask->n >> 1, mh = mask->m >> 1;
-    uint16_t i_bound = (dir >= 0) ? data->m : data->n;
-    uint16_t k_bound = (dir >= 0) ? data->n : data->m;
+    uint16_t nh = mask->n >> 1;
 
-    for (uint32_t i = 0; i < i_bound; i += 1) {
-        for (uint32_t k = 0; k < k_bound; k += 1) {
-            size_t idx = (dir >= 0) ? i * data->n + k : k * data->m + i;
-            if (k == 0 && dir >= 0) {
+    for (uint32_t i = 0; i < data->m; i += 1) {
+        for (uint32_t k = 0; k < data->n; k += 1) {
+            size_t idx = i * data->n + k;
+            if (k == 0) {
                 for (int j = 0; j < nh + 1; j += 1) {
                     read_image_window(data, wswap[j + nh], ws_height, 1, idx + j);
                 }
-            } else if (k == 0 && dir < 0) {
-                for (int j = 0; j < mh + 1; j += 1) {
-                    read_image_window(data, wswap[j + mh], 1, ws_width, idx + (j * data->n));
-                }
             } else {
-                if (dir >= 0) {
-                    uint32_t off = nh + (k / (data->n - nh)) * (k - data->n);
-                    read_image_window(data, wswap[ws_height], ws_height, 1, idx + off);
-                } else {
-                    uint32_t off = (mh + (k / (data->m - mh)) * (k - data->m)) * data->n;
-                    read_image_window(data, wswap[ws_height], 1, ws_width, idx + off);
-                }
-
+                size_t off = nh + (k / (data->n - nh)) * (k - data->n);
+                read_image_window(data, wswap[ws_height], ws_height, 1, idx + off);
+            
                 // shift columns ->
                 uint16_t *sw = wswap[0];
                 for (int j = 0; j < ws_height; j += 1) wswap[j] = wswap[j + 1];
                 wswap[ws_height] = sw;
             }
-
-            for (int i = 0; i < mask->n; i += 1) {
-                for (int k = 0; k < mask->m; k += 1) {
-                    printf(" %hu", wswap[k][i]);
-                }
-                printf("\n");
-            }
-
-            char ch;
-            scanf("%c", &ch);
 
             uint32_t c = op(wswap, mask);
             out->data[idx] = c;
@@ -371,8 +362,10 @@ void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint1
 
 uint32_t correlate_cb(uint16_t **window, Mask* mask) {
     float acc = 0;
-    for (int i = 0; i < mask->size; i += 1) {
-        acc += mask->data[i] * (float)window[i % mask->n][i / mask->n];
+    for (size_t i = 0; i < mask->m; i += 1) {
+        for (size_t k = 0; k < mask->n; k += 1) {
+            acc += mask->data[i * mask->n + k] * (float)window[k][i];
+        }
     }
 
     return (uint32_t)acc;
@@ -380,11 +373,13 @@ uint32_t correlate_cb(uint16_t **window, Mask* mask) {
 
 uint32_t convolve_cb(uint16_t **window, Mask* mask) {
     float acc = 0;
-    for (int i = 0; i < mask->size; i += 1) {
-        acc += mask->data[i] * (float)window[mask->n - (i % mask->n) - 1][(mask->m) - (i / mask->n) - 1];
+    for (size_t i = 0; i < mask->m; i += 1) {
+        for (size_t k = 0; k < mask->n; k += 1) {
+            acc += mask->data[i * mask->n + k] * (float)window[mask->n - k - 1][mask->m - i - 1];
+        }
     }
 
-    acc = (acc < 0) ? 0 : (acc > UINT32_MAX) ? UINT32_MAX : acc;
+    acc = abs(acc);
 
     return (uint32_t)acc;
 }
@@ -472,15 +467,4 @@ uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
+                                                                                                                                                                    

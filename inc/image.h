@@ -31,7 +31,8 @@ int write_image(const char *fname, Image *img);
 
 Mask *new_mask(int m, int n);
 Mask *copy_mask(Mask *msk);
-Mask *mask_image(const char *fname);
+Mask *mask_image_file(const char *fname);
+Mask *mask_image(Image *img);
 int del_mask(Mask *msk);
 
 #endif // IMAGE_H

@@ -163,8 +163,24 @@ Mask *copy_mask(Mask *msk) {
     return ret;
 }
 
-Mask *mask_image(const char *fname) {
+Mask *mask_image_file(const char *fname) {
     Image *img = load_image(fname);
+    Mask *ret = new_mask(img->m, img->n);
+
+    for (int i = 0; i < img->size; i += 1) {
+        ret->sum += img->data[i];
+    }
+
+    for (int i = 0; i < img->size; i += 1) {
+        ret->data[i] = ((float)img->data[i]) / (float)ret->sum;
+    }
+
+    del_image(img);
+
+    return ret;
+}
+
+Mask *mask_image(Image *img) {
     Mask *ret = new_mask(img->m, img->n);
 
     for (int i = 0; i < img->size; i += 1) {
