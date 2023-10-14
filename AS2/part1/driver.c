@@ -10,18 +10,19 @@
 static struct option loptions[] = {
     {"input", required_argument, 0, 'i'},
     {"mask", required_argument, 0, 'm'},
+    {"threshold_pix_count", required_argument, 0, 't'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
 
-uint32_t calculate_thresh(float pix_lim, uint16_t *histogram, uint16_t q);
+uint32_t calculate_thresh(int pix_lim, uint16_t *histogram, uint16_t q);
 
 int main(int argc, char *argv[]) {
-    int option, op_index = 0;
+    int option, op_index = 0, pix_lim = 20;
     char in_fname[32], mask_fname[32];
     strcpy(in_fname, "Image.pgm"); strcpy(mask_fname, "Pattern.pgm");
 
-    while ((option = getopt_long(argc, argv, "i:a:g", loptions, &op_index)) != -1) {
+    while ((option = getopt_long(argc, argv, "i:m:t:h", loptions, &op_index)) != -1) {
         switch (option) {
             case 'i':
                 if (optarg) strcpy(in_fname, optarg);
@@ -29,11 +30,15 @@ int main(int argc, char *argv[]) {
             case 'm':
                 if (optarg) strcpy(mask_fname, optarg);
                 break;
+            case 't':
+                if (optarg) sscanf(optarg, "%d", &pix_lim);
+                break;
             case 'h':
                 printf("Correct Usage:\n\t%s [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=Image.pgm)     \
-                        \n\t-m, --mask [string] --> filename of mask image (default=Pattern.pgm)");
-                break;
+                        \n\t-m, --mask [string] --> filename of mask image (default=Pattern.pgm)            \
+                        \n\t-t, --threshold_pixel_count [int] --> max number of pixels to keep in threshold output (default=20)\n");
+                return 0;
         }
     }
 
@@ -44,10 +49,15 @@ int main(int argc, char *argv[]) {
     Mask *mask = mask_image(minput);
     Mask *rot_mask = mask_image(rot_minput);
     
+    printf("\nCorrelating %s with mask %s ...\n", in_fname, mask_fname);
     Image *basic_corr = image_correlate(input, mask);
+
+    printf("\nCorrelating rotated %s with rotated mask %s ...\n", in_fname, mask_fname);
     Image *rot_corr = image_correlate(rot_input, rot_mask);
 
-    Image *corr_sum = image_add(basic_corr, rotate_image90(rot_corr));
+    printf("\nSumming correlations ...\n");
+    Image *t = rotate_image90(rot_corr);
+    Image *corr_sum = image_add(basic_corr, t);
 
     write_image("basic_correlation.pgm", basic_corr);
     write_image("rotated_correlation.pgm", rot_corr);
@@ -55,17 +65,19 @@ int main(int argc, char *argv[]) {
 
     uint16_t *hist = NULL; compute_hist(corr_sum, &hist);
 
-    uint32_t th = calculate_thresh(mask->size * 2, hist, input->q);
-    Image *thresh = image_thresh(corr_sum, (uint8_t)th);
+    printf("\nThresholding correlation sum ...\n");
+    uint32_t th = calculate_thresh(pix_lim, hist, input->q);
+    Image *thresh = image_thresh(corr_sum, th);
 
     write_image("threshold.pgm", thresh);
 
-    write_image("thresh_sum.pgm", image_add(thresh, input));
+    Image *thresh_sum = image_add(thresh, input);
+    write_image("thresh_sum.pgm", thresh_sum);
 
     return 0;
 }
 
-uint32_t calculate_thresh(float pix_lim, uint16_t *histogram, uint16_t q) {
+uint32_t calculate_thresh(int pix_lim, uint16_t *histogram, uint16_t q) {
     uint32_t pix_ct = 0, i = 0;
     for (i = q - 1; i >= 0; i -= 1) {
         pix_ct += histogram[i];
@@ -74,5 +86,4 @@ uint32_t calculate_thresh(float pix_lim, uint16_t *histogram, uint16_t q) {
 
     return i;
 }
-
 
