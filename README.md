@@ -8,8 +8,6 @@ This is a repository for CS474/674 Image Processing programming assignments.
 
 ### Authors
 
-Mohammed Ibrahim (CS674) (m.s.ibrahim@nevada.unr.edu)
-
 Bradley Sullivan (CS474) (bradleysullivan@nevada.unr.edu)
 
 ### Description
