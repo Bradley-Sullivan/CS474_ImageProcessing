@@ -145,7 +145,7 @@ Mask *new_mask(int m, int n) {
     ret->n = n;
     ret->size = m * n;
     ret->sum = 0;
-    ret->data = (float*) malloc(sizeof(float) * ret->size);
+    ret->data = (double*) malloc(sizeof(double) * ret->size);
 
     return ret;
 }
@@ -172,7 +172,7 @@ Mask *mask_image_file(const char *fname) {
     }
 
     for (int i = 0; i < img->size; i += 1) {
-        ret->data[i] = ((float)img->data[i]) / (float)ret->sum;
+        ret->data[i] = ((double)img->data[i]) / (double)ret->sum;
     }
 
     del_image(img);
@@ -188,10 +188,8 @@ Mask *mask_image(Image *img) {
     }
 
     for (int i = 0; i < img->size; i += 1) {
-        ret->data[i] = ((float)img->data[i]) / (float)ret->sum;
+        ret->data[i] = ((double)img->data[i]) / (double)ret->sum;
     }
-
-    del_image(img);
 
     return ret;
 }

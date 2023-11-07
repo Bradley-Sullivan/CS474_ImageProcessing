@@ -18,7 +18,7 @@ typedef struct Image {
 typedef struct Mask {
     uint16_t m, n;
     size_t size, sum;
-    float *data;
+    double *data;
 } Mask;
 
 Image *new_image(int m, int n, int q);
