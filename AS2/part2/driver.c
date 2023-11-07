@@ -19,7 +19,7 @@ static struct option loptions[] = {
 int main(int argc, char* argv[]) {
     int option, op_index = 0;
     int avg_size = 3;
-    float sigma = 1.4f;
+    double sigma = 1.4f;
     char fname[32]; strcpy(fname, "catstronaut.pgm");
 
     while ((option = getopt_long(argc, argv, "i:a:g:h", loptions, &op_index)) != -1) {
@@ -36,7 +36,7 @@ int main(int argc, char* argv[]) {
             case 'h':
                 printf("Correct Usage:\n\t%s [input] [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=catstronaut.pgm)     \
-                                \n\t-a, --average [int] --> size of average mask (default=3)\n\t-g, --gauss [float] --> standard deviation (sigma) (default=1.4f)\n\n");
+                                \n\t-a, --average [int] --> size of average mask (default=3)\n\t-g, --gauss [double] --> standard deviation (sigma) (default=1.4f)\n\n");
                 return 0;
         }
     }

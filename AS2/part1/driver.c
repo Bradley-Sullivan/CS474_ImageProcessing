@@ -18,7 +18,7 @@ static struct option loptions[] = {
 uint32_t calculate_thresh(int pix_lim, uint16_t *histogram, uint16_t q);
 
 int main(int argc, char *argv[]) {
-    int option, op_index = 0, pix_lim = 20;
+    int option, op_index = 0, pix_lim = 500;
     char in_fname[32], mask_fname[32];
     strcpy(in_fname, "Image.pgm"); strcpy(mask_fname, "Pattern.pgm");
 

@@ -6,10 +6,10 @@
 
 #include "util.h"
 
-void add_snp_noise(Image *img, float pct);
+void add_snp_noise(Image *img, double pct);
 
 int main(void) {
-    Image *input = load_image("clouds.pgm");
+    Image *input = load_image("lenna.pgm");
     
     add_snp_noise(input, 0.20f);
 
@@ -23,7 +23,7 @@ int main(void) {
     return 0;
 }
 
-void add_snp_noise(Image *img, float pct) {
+void add_snp_noise(Image *img, double pct) {
     size_t snp_ct = pct * img->size;
     while (snp_ct--) {
         size_t idx = (size_t)rand() % img->size;
