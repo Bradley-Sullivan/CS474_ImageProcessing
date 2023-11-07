@@ -21,9 +21,9 @@
 #define RAD2DEG    (180.0f / M_PI)
 
 int compute_hist(Image *img, uint16_t **dest_hist);
-int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob);
-int equalize_hist(int q, uint16_t *hist, float *prob);
-float sample_gauss(int x, int y, float sigma);
+int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, double **prob);
+int equalize_hist(int q, uint16_t *hist, double *prob);
+double sample_gauss(int x, int y, double sigma);
 
 Image *rotate_image90(Image *img);
 Image *image_add(Image *a, Image *b);
@@ -39,12 +39,15 @@ Image *image_rescale(Image *input, int factor);
 Image *image_requantize(Image *img, uint8_t bits);
 Image *image_correlate(Image *img, Mask *mask);
 Image *image_average(Image *img, int k);
-Image *image_gauss(Image *img, float sig);
+Image *image_gauss(Image *img, double sig);
 Image *image_median_filter(Image *img, int k);
 Image *image_unsharp_mask(Image *img, Image *smooth);
-Image *image_high_boost(Image *img, Image *diff, float k);  // need to fix
+Image *image_high_boost(Image *img, Image *diff, double k);  // need to fix
 Image *image_gradient(Image *img, int prewitt_sobel);
 Image *image_laplacian(Image *img);
+
+void fft(double *d, unsigned long nn, int isign);
+void cmult(double *a, double *b, double *p);
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*));
 

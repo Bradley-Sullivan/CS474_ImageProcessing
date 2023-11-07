@@ -12,20 +12,20 @@ int compute_hist(Image *img, uint16_t **dest_hist) {
     return 0;
 }
 
-int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, float **prob) {
-    (*prob) = (float*) malloc(sizeof(float) * q);
+int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, double **prob) {
+    (*prob) = (double*) malloc(sizeof(double) * q);
     if (!(*prob)) {
         fprintf(stderr, "Error allocating memory for pixel probabilities.\n");
         return 1;
     }
 
-    for (int i = 0; i < q; i += 1) (*prob)[i] = (float)hist[i] / img_size;
+    for (int i = 0; i < q; i += 1) (*prob)[i] = (double)hist[i] / img_size;
 
     return 0;
 }
 
-int equalize_hist(int q, uint16_t *hist, float *prob) {
-    float psum = 0;
+int equalize_hist(int q, uint16_t *hist, double *prob) {
+    double psum = 0;
     
     for (int i = q; i >= 0; i -= 1) {
         psum = 0;
@@ -37,8 +37,8 @@ int equalize_hist(int q, uint16_t *hist, float *prob) {
     return 0;
 }
 
-float sample_gauss(int x, int y, float sigma) {
-    float ex = -( x * x + y * y) / (2 * sigma * sigma);
+double sample_gauss(int x, int y, double sigma) {
+    double ex = -( x * x + y * y) / (2 * sigma * sigma);
     return exp(ex) / (2 * M_PI * sigma * sigma);
 }
 
@@ -102,7 +102,7 @@ Image *image_thresh(Image *img, uint8_t t) {
 Image *image_specify_hist(Image *input, Image *spec) {
     Image *out = new_image(input->m, input->n, input->q);
     uint16_t *in_hist = NULL, *spec_hist = NULL;
-    float *in_prob = NULL, *spec_prob = NULL;
+    double *in_prob = NULL, *spec_prob = NULL;
 
     // compute input and specified histograms
     compute_hist(input, &in_hist);
@@ -145,7 +145,7 @@ Image *image_hist_eq(Image *input) {
     Image *img = copy_image(input);
 
     uint16_t *hist = NULL;
-    float *prob = NULL;
+    double *prob = NULL;
 
     compute_hist(img, &hist);
 
@@ -209,10 +209,10 @@ Image *image_requantize(Image *input, uint8_t bits) {
     Image *img = copy_image(input);
     
     int levels = 1 << (bits);           // # of levels
-    float comp = (float)input->q / levels;  // dist between levels
+    double comp = (double)input->q / levels;  // dist between levels
 
     for (int i = 0; i < img->size; i += 1) {
-        img->data[i] = (uint8_t) (((float)img->data[i] / UINT8_MAX) * levels) * comp;
+        img->data[i] = (uint8_t) (((double)img->data[i] / UINT8_MAX) * levels) * comp;
     }
 
     return img;
@@ -241,7 +241,7 @@ Image *image_average(Image *img, int k) {
     return out;
 }
 
-Image *image_gauss(Image *img, float sig) {
+Image *image_gauss(Image *img, double sig) {
     int k = 5 * sig;
     Image *out = new_image(img->m, img->n, img->q);
     Mask *mask = new_mask(k, k);
@@ -284,11 +284,11 @@ Image *image_unsharp_mask(Image *img, Image *smooth) {
     return out;
 }
 
-Image *image_high_boost(Image *img, Image *diff, float k) {
+Image *image_high_boost(Image *img, Image *diff, double k) {
     Image *out = new_image(img->m, img->n, img->q);
 
     for (size_t i = 0; i < img->size; i += 1) {
-        out->data[i] = img->data[i] + (k * (float)diff->data[i]);
+        out->data[i] = img->data[i] + (k * (double)diff->data[i]);
     }
 
     return out;
@@ -322,7 +322,7 @@ Image *image_gradient(Image *img, int prewitt_sobel) {
 }
 
 Image *image_laplacian(Image *img) {
-    float DD[9] = { 0, 1, 0, 1, -4, 1, 0, 1, 0 };
+    double DD[9] = { 0, 1, 0, 1, -4, 1, 0, 1, 0 };
     Image *out = new_image(img->m, img->n, img->q);
     Mask d = (Mask){3, 3, 9, 0, DD};
 
@@ -330,6 +330,59 @@ Image *image_laplacian(Image *img) {
     
     return out;
 }
+
+void fft(double *d, unsigned long nn, int isign) {
+#define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
+    unsigned long n,mmax,m,j,istep,i;
+    double wtemp,wr,wpr,wpi,wi,theta;
+    double tempr,tempi;
+
+    n=nn << 1;
+    j=1;
+    for (i=1;i<n;i+=2) {
+            if (j > i) {
+                    SWAP(d[j],d[i]);
+                    SWAP(d[j+1],d[i+1]);
+            }
+            m=n >> 1;
+            while (m >= 2 && j > m) {
+                    j -= m;
+                    m >>= 1;
+            }
+            j += m;
+    }
+    mmax=2;
+    while (n > mmax) {
+            istep=mmax << 1;
+            theta=isign*(6.28318530717959/mmax);
+            wtemp=sin(0.5*theta);
+            wpr = -2.0*wtemp*wtemp;
+            wpi=sin(theta);
+            wr=1.0;
+            wi=0.0;
+            for (m=1;m<mmax;m+=2) {
+                    for (i=m;i<=n;i+=istep) {
+                            j=i+mmax;
+                            tempr=wr*d[j]-wi*d[j+1];
+                            tempi=wr*d[j+1]+wi*d[j];
+                            d[j]=d[i]-tempr;
+                            d[j+1]=d[i+1]-tempi;
+                            d[i] += tempr;
+                            d[i+1] += tempi;
+                    }
+                    wr=(wtemp=wr)*wpr-wi*wpi+wr;
+                    wi=wi*wpr+wtemp*wpi+wi;
+            }
+            mmax=istep;
+    }
+#undef SWAP
+}
+
+void cmult(double *a, double *b, double *p) {
+    p[0] = (a[0] * b[0]) - (a[1] * b[1]);
+    p[1] = (a[0] * b[1]) - (a[1] * b[0]);
+}
+
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
     uint16_t ws_height = mask->n, ws_width = mask->m, nh = mask->n >> 1;
@@ -366,14 +419,17 @@ void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint1
         }
     }
 
-    free(acc);
+    // if (acc) {
+    //     for (int i = 0; i < ws_height + 1; i += 1) if (acc[i]) free(acc[i]);
+    //     free(acc);
+    // }
 }
 
 uint32_t correlate_cb(uint16_t **window, Mask* mask) {
-    float acc = 0;
+    double acc = 0;
     for (size_t i = 0; i < mask->m; i += 1) {
         for (size_t k = 0; k < mask->n; k += 1) {
-            acc += mask->data[i * mask->n + k] * (float)window[k][i];
+            acc += mask->data[i * mask->n + k] * (double)window[k][i];
         }
     }
 
@@ -381,10 +437,10 @@ uint32_t correlate_cb(uint16_t **window, Mask* mask) {
 }
 
 uint32_t convolve_cb(uint16_t **window, Mask* mask) {
-    float acc = 0;
+    double acc = 0;
     for (size_t i = 0; i < mask->m; i += 1) {
         for (size_t k = 0; k < mask->n; k += 1) {
-            acc += mask->data[i * mask->n + k] * (float)window[mask->n - k - 1][mask->m - i - 1];
+            acc += mask->data[i * mask->n + k] * (double)window[mask->n - k - 1][mask->m - i - 1];
         }
     }
 
@@ -476,4 +532,4 @@ uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size
 
 
 
-                                                                                                                                                                    
+                                                                                                                                                                                    
