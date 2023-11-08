@@ -331,13 +331,13 @@ Image *image_laplacian(Image *img) {
     return out;
 }
 
-void fft(double *d, unsigned long nn, int isign) {
+void fft(double *d, size_t len, int isign) {
 #define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
     unsigned long n,mmax,m,j,istep,i;
     double wtemp,wr,wpr,wpi,wi,theta;
     double tempr,tempi;
 
-    n=nn << 1;
+    n=len << 1;
     j=1;
     for (i=1;i<n;i+=2) {
             if (j > i) {
@@ -383,6 +383,31 @@ void cmult(double *a, double *b, double *p) {
     p[1] = (a[0] * b[1]) - (a[1] * b[0]);
 }
 
+void dft2D(double **d, size_t m, size_t n, int isign) {
+    if (!d) return;
+
+    int idx;
+    double *buf = (double*) malloc(sizeof(double) * m * 2 + 1);
+    for (int i = 0; i < m; i += 1) {
+        fft(d[i], n, isign);
+    }
+
+    for (int k = 1; k < n * 2; k += 2) {
+        for (int i = 1; i < m * 2; i += 2) {
+            idx = (i - 1) >> 1;
+            buf[i] = d[idx][k] / m;
+            buf[i + 1] = d[idx][k + 1] / m;
+        }
+
+        fft(buf, m, isign);
+
+        for (int i = 1; i < m * 2; i += 2) {
+            idx = (i - 1) >> 1;
+            d[idx][k] = buf[i];
+            d[idx][k + 1] = buf[i + 1];
+        }
+    }
+}
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
     uint16_t ws_height = mask->n, ws_width = mask->m, nh = mask->n >> 1;
@@ -522,14 +547,3 @@ uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size
 
     return wsize;
 }
-
-
-
-
-
-
-
-
-
-
-                                                                                                                                                                                    

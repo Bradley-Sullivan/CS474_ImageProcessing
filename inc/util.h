@@ -46,7 +46,8 @@ Image *image_high_boost(Image *img, Image *diff, double k);  // need to fix
 Image *image_gradient(Image *img, int prewitt_sobel);
 Image *image_laplacian(Image *img);
 
-void fft(double *d, unsigned long nn, int isign);
+void fft(double *d, size_t len, int isign);
+void dft2D(double **d, size_t m, size_t n, int isign);
 void cmult(double *a, double *b, double *p);
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*));
@@ -60,4 +61,4 @@ void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint
 
 uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size_t pos);
 
-#endif // UTIL_H
+#endif // UTIL
