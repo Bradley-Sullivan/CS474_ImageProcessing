@@ -12,36 +12,26 @@
 int main(void) {
     Image *img = load_image("lenna.pgm");
 
-    uint16_t x, y;
-    double r, c;
-    double **fc = (double**) malloc(sizeof(double*) * img->n);
-    double **fr = (double**) malloc(sizeof(double*) * img->n);
-    for (int i = 0; i < img->n; i += 1) fc[i] = (double*) malloc(sizeof(double) * img->n * 2 + 1);
-    for (int i = 0; i < img->n; i += 1) fr[i] = (double*) malloc(sizeof(double) * img->n * 2 + 1);
+    int r, im, x, y;
+    double **d = (double**) malloc(sizeof(double*) * img->m);
+    for (int i = 0; i < img->m; i += 1) {
+        d[i] = (double*) malloc(sizeof(double) * img->n * 2 + 1);
+    }
 
     for (uint16_t i = 0; i < img->n; i += 1) {
         for (uint16_t k = 1; k < img->n * 2 + 1; k += 2) {
             x = ((k - 1) >> 1); y = i;
-            fr[i][k] = (double)(img->data[i * img->n + ((k - 1) >> 1)]) * pow(-1, x + y);
-            fr[i][k + 1] = 0;
+            d[i][k] = (double)(img->data[y * img->n + x]) * pow(-1, x + y);
+            d[i][k + 1] = 0;
         }
-
-        fft(fr[i], img->n, -1);
     }
 
-    for (uint16_t i = 0; i < img->n; i += 1) {
-        for (uint16_t k = 1; k < img->n * 2 + 1; k += 2) {
-            fc[i][k] = fr[(k - 1) >> 1][(i + 1) << 1] / img->n;
-            fc[i][k + 1] = fr[(k - 1) >> 1][((i + 1) << 1) + 1] / img->n;
-        }
+    dft2D(d, img->m, img->n, -1);
 
-        fft(fc[i], img->n, -1);
-    }
-    
-    for (uint16_t i = 0; i < img->n; i += 1) {
-        for (uint16_t k = 1; k < img->n * 2 + 1; k += 2) {
-            r = fc[i][k]; c = fc[i][k + 1];
-            img->data[i * img->n + ((k - 1) >> 1)] = CLAMP(0, UINT8_MAX, 10 * log(1 + sqrt(r * r + c * c)));
+    for (uint16_t i = 0; i < img->m; i += 1) {
+        for (uint16_t k = 1; k < img->n * 2; k += 2) {
+            r = d[i][k]; im = d[i][k + 1];
+            img->data[i * img->n + ((k - 1) >> 1)] = CLAMP(0, UINT8_MAX, 10 * log(1 + sqrt(r * r + im * im)));
         }
     }
 
