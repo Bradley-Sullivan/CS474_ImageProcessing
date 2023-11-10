@@ -10,7 +10,7 @@
 #define CLAMP(min,max,val) (val > min ? (val < max ? val : max) : min)
 
 int main(void) {
-    Image *img = load_image("lenna.pgm");
+    Image *img = load_image("square32.pgm");
 
     int r, im, x, y;
     double **d = (double**) malloc(sizeof(double*) * img->m);
