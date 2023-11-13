@@ -79,7 +79,8 @@ Image *load_image(const char *fname) {
         fprintf(stderr, "Error loading file data.\n");
         return NULL;
     }
-
+    
+    free(fbuf);
     fclose(fp);
 
     return img;
@@ -102,6 +103,8 @@ int load_header(FILE *fp, Image *img) {
     fscanf(fp, "%hu\n", &img->q);
 
     img->size = img->m * img->n;
+
+    free(rbuf);
 
     return 0;
 }

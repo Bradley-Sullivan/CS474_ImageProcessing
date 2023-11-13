@@ -46,6 +46,8 @@ Image *image_high_boost(Image *img, Image *diff, double k);  // need to fix
 Image *image_gradient(Image *img, int prewitt_sobel);
 Image *image_laplacian(Image *img);
 
+double **image_complex(Image *img, int centered);
+
 void fft(double *d, size_t len, int isign);
 void dft2D(double **d, size_t m, size_t n, int isign);
 void cmult(double *a, double *b, double *p);
