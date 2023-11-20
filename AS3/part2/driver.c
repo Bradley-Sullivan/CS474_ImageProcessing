@@ -11,43 +11,47 @@
 
 #define CLAMP(min,max,val) (val > min ? (val < max ? val : max) : min)
 
-void visualize_dft(Image *img);
+void visualize_dft(Image *img, int centered);
 
 static struct option loptions[] = {
     {"input", required_argument, 0, 'i'},
+    {"centered", no_argument, 0, 'c'},
     {"help", no_argument, 0, 'h'},
     {0, 0, 0, 0}
 };
 
 int main(int argc, char* argv[]) {
-    int option, op_index = 0;
+    int option, op_index = 0, c = 0;
     char fname[32]; strcpy(fname, "catstronaut.pgm");
 
-    while ((option = getopt_long(argc, argv, "i:h", loptions, &op_index)) != -1) {
+    while ((option = getopt_long(argc, argv, "i:c:h", loptions, &op_index)) != -1) {
         switch (option) {
             case 'i':
                 if (optarg) strcpy(fname, optarg);
                 break;
+            case 'c':
+                c = 1;
+                break;
             case 'h':
                 printf("Correct Usage:\n\t%s [input] [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=catstronaut.pgm) \
-                        \n\t-h, --help --> displays this message.");
+                        \n\t-c, --centered --> centers spectrum \
+                        \n\t-h, --help --> displays this message");
                 return 0;
         }
     }
 
     Image *input = load_image(fname);
-    visualize_dft(input);
+    visualize_dft(input, c);
     write_image("dft.pgm", input);
 
     return 0;
 }
 
-void visualize_dft(Image *img) {
-    int x, y;
+void visualize_dft(Image *img, int centered) {
     double r, im, th;
     // obtain centered complex representation of our data
-    double **d = image_complex(img, 1);
+    double **d = image_complex(img, centered);
 
     // computes DFT of our complex image data (-1 for forward transform)
     dft2D(d, img->m, img->n, -1);
