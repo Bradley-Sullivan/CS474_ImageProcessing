@@ -340,7 +340,7 @@ double **image_complex(Image *img, int centered) {
         // row length is 2*n+1 as each element has a real and complex component
         // '+1' because fft()'s bit-reversal rule ignores the zero index.
         d[i] = (double*) malloc(sizeof(double) * img->n * 2 + 1);
-        for (uint16_t k = 1; k < img->n * 2 + 1; k += 2) {  // iterate complex elements
+        for (size_t k = 1; k < img->n * 2 + 1; k += 2) {  // iterate complex elements
             x = ((k - 1) >> 1); // compute x (column) as (k-1)/2
             y = i;
             d[i][k] = (double)(img->data[y * img->n + x]) * pow(centered, x + y);  // centers spectrum with pow(-1,x+y)
@@ -406,7 +406,7 @@ void cmult(double *a, double *b, double *p) {
 void dft2D(double **d, size_t m, size_t n, int isign) {
     if (!d) return;
 
-    int idx;
+    size_t idx;
     // auxilary storage to hold column elements
     double *buf = (double*) malloc(sizeof(double) * m * 2 + 1);
 
@@ -416,7 +416,7 @@ void dft2D(double **d, size_t m, size_t n, int isign) {
     }
 
     for (int k = 1; k < n * 2; k += 2) {  // iterates column elements
-        for (int i = 1; i < m * 2; i += 2) {  // iterates rows, copying columns into buffer
+        for (size_t i = 1; i < m * 2; i += 2) {  // iterates rows, copying columns into buffer
             idx = (i - 1) >> 1;
             buf[i] = d[idx][k] / m;
             buf[i + 1] = d[idx][k + 1] / m;
@@ -425,12 +425,14 @@ void dft2D(double **d, size_t m, size_t n, int isign) {
         // computes column transform
         fft(buf, m, isign);
 
-        for (int i = 1; i < m * 2; i += 2) {  // iterates rows and copies back
+        for (size_t i = 1; i < m * 2; i += 2) {  // iterates rows and copies back
             idx = (i - 1) >> 1;
             d[idx][k] = buf[i];
             d[idx][k + 1] = buf[i + 1];
         }
     }
+
+    free(buf);
 }
 
 void image_iter_window(Image *data, Image *out, Mask *mask, uint32_t (*op)(uint16_t**, Mask*)) {
