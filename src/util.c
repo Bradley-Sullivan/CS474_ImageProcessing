@@ -400,7 +400,7 @@ void fft(double *d, size_t len, int isign) {
 
 void cmult(double *a, double *b, double *p) {
     p[0] = (a[0] * b[0]) - (a[1] * b[1]);
-    p[1] = (a[0] * b[1]) - (a[1] * b[0]);
+    p[1] = (a[0] * b[1]) + (a[1] * b[0]);
 }
 
 void dft2D(double **d, size_t m, size_t n, int isign) {
