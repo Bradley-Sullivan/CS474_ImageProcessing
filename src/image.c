@@ -148,7 +148,8 @@ Mask *new_mask(int m, int n) {
     ret->n = n;
     ret->size = m * n;
     ret->sum = 0;
-    ret->data = (double*) malloc(sizeof(double) * ret->size);
+
+    ret->data = (double*) calloc(ret->size, sizeof(double));
 
     return ret;
 }
