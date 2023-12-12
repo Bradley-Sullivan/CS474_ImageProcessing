@@ -12,7 +12,7 @@
 #define CLAMP(min,max,val) (val > min ? (val < max ? val : max) : min)
 
 void visualize_dft(Image *img, int centered);
-void visualize_filter(int m, int n, double **d);
+void visualize_filter(const char *fname, double **d, int m, int n);
 double samp_bw_high_pass(int u, int v, float w, int n);
 double samp_bw_band_reject(int u, int v, float w, float r, int cx, int cy, int n);
 double samp_bw_notch_reject(int u, int v, float w, int cx, int cy, int n);
@@ -49,16 +49,19 @@ int main(int argc, char* argv[]) {
     dft2D(d, input->m, input->n, -1);
 
     for (size_t i = 0; i < input->m; i += 1) {
-        for (size_t k = 0; k < 2 * input->n; k += 2) {
+        for (size_t k = 0; k < 2 * input->n + 1; k += 2) {
             x = (k >> 1) - (input->n >> 1); y = (input->m >> 1) - i;
-            // s[0] = samp_bw_notch_reject(x, y, 3, 32, 16, 1);
-            // s[0] *= samp_bw_notch_reject(x, y, 3, -32, 16, 1);
-            s[0] = samp_bw_band_reject(x, y, 4, 36, 0, 0, 1);
+            s[0] = samp_bw_notch_reject(x, y, 2, 32, 16, 1);
+            s[0] *= samp_bw_notch_reject(x, y, 2, -32, 16, 1);
+            s[0] = 1 - s[0];
+            // s[0] = 1 - samp_bw_band_reject(x, y, 8, 36, 0, 0, 1);
             s[1] = 0;
             cmult(d[i] + k, s, p);
             d[i][k] = p[0]; d[i][k + 1] = p[1];
         }
     }
+
+    visualize_filter("filtered_dft.pgm", d, input->m, input->n);
 
     dft2D(d, input->m, input->n, 1);
     
@@ -74,20 +77,23 @@ int main(int argc, char* argv[]) {
     write_image("out.pgm", input);
 
     for (size_t i = 0; i < input->m; i += 1) {
-        for (size_t k = 0; k < 2 * input->n; k += 2) {
+        for (size_t k = 0; k < 2 * input->n + 1; k += 2) {
             x = (k >> 1) - (input->n >> 1); y = (input->m >> 1) - i;
-            s[0] = samp_bw_band_reject(x, y, 4, 36, 0, 0, 1);
-            d[i][k] = s[0];
-            d[i][k + 1] = 0;
+            s[0] = samp_bw_notch_reject(x, y, 2, 32, 16, 1);
+            s[0] *= samp_bw_notch_reject(x, y, 2, -32, 16, 1);
+            s[1] = 0;
+            // s[0] = 1 - samp_bw_band_reject(x, y, 8, 36, 0, 0, 1);
+            d[i][k] = 1 - s[0];
+            d[i][k + 1] = s[1];
         }
     }
 
-    visualize_filter(input->m, input->n, d);
+    visualize_filter("pure.pgm", d, input->m, input->n);
 
     return 0;
 }
 
-void visualize_filter(int m, int n, double **d) {
+void visualize_filter(const char *fname, double **d, int m, int n) {
     Image *vis = new_image(m, n, 255);
     double r, im, th;
 
@@ -95,12 +101,12 @@ void visualize_filter(int m, int n, double **d) {
         for (uint16_t k = 1; k < n * 2; k += 2) {  // ...
             r = d[i][k]; im = d[i][k + 1];
             // logartihmic "stretching" clamped between 0 and 255
-            th = CLAMP(0, UINT8_MAX, 255 * log(1 + sqrt(r * r + im * im)));
+            th = CLAMP(0, UINT8_MAX, 50 * log(1 + sqrt(r * r + im * im)));
             vis->data[i * n + ((k - 1) >> 1)] = th;
         }
     }
 
-    write_image("filter.pgm", vis);
+    write_image(fname, vis);
     del_image(vis);
 }
 
@@ -116,7 +122,7 @@ void visualize_dft(Image *img, int centered) {
         for (uint16_t k = 1; k < img->n * 2; k += 2) {  // ...
             r = d[i][k]; im = d[i][k + 1];
             // logartihmic "stretching" clamped between 0 and 255
-            th = CLAMP(0, UINT8_MAX, 15 * log(1 + sqrt(r * r + im * im)));
+            th = CLAMP(0, UINT8_MAX, 255 * log(1 + sqrt(r * r + im * im)));
             img->data[i * img->n + ((k - 1) >> 1)] = th;
         }
 
