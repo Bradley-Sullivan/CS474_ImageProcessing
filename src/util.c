@@ -351,6 +351,26 @@ double **image_complex(Image *img, int centered) {
     return d;
 }
 
+double **mask_complex(Mask *mask, int centered) {
+    // if centered != 0 then centered = -1 else centered = 1
+    centered = centered ? -1 : 1;
+    int x, y;
+    double **d = (double**) malloc(sizeof(double) * mask->m);
+    for (int i = 0; i < mask->m; i += 1) {
+        // row length is 2*n+1 as each element has a real and complex component
+        // '+1' because fft()'s bit-reversal rule ignores the zero index.
+        d[i] = (double*) malloc(sizeof(double) * mask->n * 2 + 1);
+        for (size_t k = 1; k < mask->n * 2 + 1; k += 2) {  // iterate complex elements
+            x = ((k - 1) >> 1); // compute x (column) as (k-1)/2
+            y = i;
+            d[i][k] = mask->data[y * mask->n + x] * pow(centered, x + y);  // centers spectrum with pow(-1,x+y)
+            d[i][k + 1] = 0;
+        }
+    }
+
+    return d;
+}
+
 void fft(double *d, size_t len, int isign) {
 #define SWAP(a,b) tempr=(a);(a)=(b);(b)=tempr
     unsigned long n,mmax,m,j,istep,i;
@@ -495,7 +515,7 @@ uint32_t convolve_cb(uint16_t **window, Mask* mask) {
         }
     }
 
-    acc = abs(acc);
+    acc = CLAMP(0,UINT8_MAX, abs(acc));
 
     return (uint32_t)acc;
 }
@@ -574,5 +594,20 @@ uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size
     return 0;
 }
 
+// bit-twiddling algorithm to get the next power of two
+uint32_t nx_power_two(uint32_t v) {
+    v -= 1;
+    v |= v >> 1;
+    v |= v >> 2;
+    v |= v >> 4;
+    v |= v >> 8;
+    v |= v >> 16;
+    v++;
 
+    return v;
+}
+
+int is_two_power(uint32_t v) {
+    return (v & (v - 1)) == 0;
+}
 
