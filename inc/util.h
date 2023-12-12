@@ -10,15 +10,16 @@
 
 #define M_PI 3.14159265358979323846
 
-#define PREWITT    1
-#define SOBEL      2
-#define SCHARR     3
+#define M_PREWITT    1
+#define M_SOBEL      2
 
 #define ROWMAJOR   1
 #define COLMAJOR   -1
 
 #define DEG2RAD    (M_PI / 180.0f)
 #define RAD2DEG    (180.0f / M_PI)
+
+#define CLAMP(min,max,val) (val > min ? (val < max ? val : max) : min)
 
 int compute_hist(Image *img, uint16_t **dest_hist);
 int compute_pix_prob(size_t img_size, uint16_t q, uint16_t *hist, double **prob);
@@ -47,6 +48,7 @@ Image *image_gradient(Image *img, int prewitt_sobel);
 Image *image_laplacian(Image *img);
 
 double **image_complex(Image *img, int centered);
+double **mask_complex(Mask *mask, int centered);
 
 void fft(double *d, size_t len, int isign);
 void dft2D(double **d, size_t m, size_t n, int isign);
@@ -62,5 +64,8 @@ void msb_radixsort(uint16_t *data, int zbin, int obin, uint16_t mask);
 void msb_radixsort_index(uint16_t *data, uint16_t *idx, int zbin, int obin, uint16_t mask);
 
 uint16_t read_image_window(Image *img, uint16_t *win, uint8_t m, uint8_t n, size_t pos);
+
+uint32_t nx_power_two(uint32_t v);
+int is_two_power(uint32_t v);
 
 #endif // UTIL
