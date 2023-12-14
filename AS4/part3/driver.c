@@ -36,7 +36,6 @@ int main(int argc, char* argv[]) {
             case 'h':
                 printf("Correct Usage:\n\t%s [input] [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=catstronaut.pgm) \
-                        \n\t-c, --centered --> centers spectrum \
                         \n\t-h, --help --> displays this message");
                 return 0;
         }
