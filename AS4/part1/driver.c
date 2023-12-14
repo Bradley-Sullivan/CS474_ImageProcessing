@@ -35,7 +35,6 @@ int main(int argc, char* argv[]) {
             case 'h':
                 printf("Correct Usage:\n\t%s [input] [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=catstronaut.pgm) \
-                        \n\t-c, --centered --> centers spectrum \
                         \n\t-h, --help --> displays this message");
                 return 0;
         }
@@ -53,7 +52,7 @@ int main(int argc, char* argv[]) {
             x = (k >> 1) - (input->n >> 1); y = (input->m >> 1) - i;
             s[0] = samp_bw_notch_reject(x, y, 2, 32, 16, 1);
             s[0] *= samp_bw_notch_reject(x, y, 2, -32, 16, 1);
-            s[0] = 1 - s[0];
+            s[0] = s[0];
             // s[0] = 1 - samp_bw_band_reject(x, y, 8, 36, 0, 0, 1);
             s[1] = 0;
             cmult(d[i] + k, s, p);
