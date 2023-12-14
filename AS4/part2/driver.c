@@ -66,7 +66,9 @@ int main(int argc, char* argv[]) {
             case 'h':
                 printf("Correct Usage:\n\t%s [input] [options]\n", argv[0]);
                 printf("\nOPTIONS\n\t-i, --input [string] --> filename of input file (default=catstronaut.pgm) \
-                        \n\t-h, --help --> displays this message");
+                        \n\t-s, --sobel     --> filters with x and y Sobel masks                                   \
+                        \n\t-l, --laplacian --> filters with Laplacian mask                                    \
+                        \n\t-h, --help      --> displays this message");
                 return 0;
         }
     }
